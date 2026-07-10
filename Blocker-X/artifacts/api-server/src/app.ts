@@ -53,10 +53,23 @@ app.use(createSessionMiddleware());
 
 app.use("/api", router);
 
-const frontendDist = path.resolve(__dirname, "../../blockerx/dist/public");
-app.use(express.static(frontendDist));
-app.get(/.*/, (_req, res) => {
-  res.sendFile(path.join(frontendDist, "index.html"));
-});
+if (process.env.NODE_ENV === "production") {
+  const frontendDist = path.resolve(__dirname, "../../blockerx/dist/public");
+  app.use(express.static(frontendDist));
+  app.get(/.*/, (_req, res) => {
+    res.sendFile(path.join(frontendDist, "index.html"));
+  });
+} else {
+  const { createProxyMiddleware } = await import("http-proxy-middleware");
+  const devPort = process.env.FRONTEND_PORT || "5000";
+  app.use(
+    /^(?!\/api).*/,
+    createProxyMiddleware({
+      target: `http://localhost:${devPort}`,
+      changeOrigin: true,
+      ws: true,
+    }),
+  );
+}
 
 export default app;
