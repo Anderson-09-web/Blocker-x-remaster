@@ -170,6 +170,7 @@ export default function BotDetailPage() {
   const [exportingZip, setExportingZip] = useState(false);
   const [uploadingZip, setUploadingZip] = useState(false);
   const [zipProgress, setZipProgress] = useState<{ done: number; total: number } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const [editingEnvVar, setEditingEnvVar] = useState<{ id: string; key: string } | null>(null);
   const [editingEnvVal, setEditingEnvVal] = useState("");
   const [visibleEnvIds, setVisibleEnvIds] = useState<Set<string>>(new Set());
@@ -500,6 +501,18 @@ export default function BotDetailPage() {
     } finally {
       setUploadingZip(false);
       setZipProgress(null);
+    }
+  };
+
+  const handleExtractZipFromR2 = async (filePath: string, fileName: string) => {
+    try {
+      const res = await fetch(`/api/files/${botId}/download?path=${encodeURIComponent(filePath)}`, { credentials: "include" });
+      if (!res.ok) { toast({ title: "No se pudo descargar el ZIP", variant: "destructive" }); return; }
+      const blob = await res.blob();
+      const file = new File([blob], fileName, { type: "application/zip" });
+      await handleUploadZipFile(file);
+    } catch {
+      toast({ title: "Error al extraer el ZIP", variant: "destructive" });
     }
   };
 
@@ -968,7 +981,21 @@ export default function BotDetailPage() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="p-0">
+              <CardContent className="p-0 relative"
+                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); if (!isDragging) setIsDragging(true); }}
+                onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDragging(false); }}
+                onDrop={(e) => {
+                  e.preventDefault(); e.stopPropagation(); setIsDragging(false);
+                  const file = e.dataTransfer.files?.[0];
+                  if (file) handleUploadZipFile(file);
+                }}>
+                {isDragging && (
+                  <div className="absolute inset-0 z-30 rounded-b-lg border-2 border-dashed border-primary bg-primary/10 flex flex-col items-center justify-center gap-2 pointer-events-none">
+                    <Upload className="w-8 h-8 text-primary" />
+                    <p className="text-sm font-medium text-primary">Suelta aquí para subir</p>
+                    <p className="text-xs text-primary/70">Los .zip se extraen automáticamente</p>
+                  </div>
+                )}
                 {/* Breadcrumb navigation */}
                 <div className="px-3 py-1.5 flex items-center gap-1 text-xs border-b border-border/30 bg-muted/10 min-h-[30px]">
                   <button onClick={() => handleGoToFolder([], -1)} className={`hover:text-foreground transition-colors ${!currentFolder ? "text-foreground font-medium" : "text-primary hover:underline"}`}>
@@ -1008,16 +1035,16 @@ export default function BotDetailPage() {
                       </button>
                       <div className="flex items-center gap-0 pr-1 shrink-0">
                         {f.type !== "directory" && f.name.toLowerCase().endsWith(".zip") ? (
-                          /* ZIP files — botón de exportar visible + menú ··· para el resto de opciones */
+                          /* ZIP files — botón Extraer ZIP visible + menú ··· para descarga/mover/eliminar */
                           <>
-                            <a
-                              title="Exportar .zip"
-                              href={`/api/files/${botId}/download?path=${encodeURIComponent(f.path)}`}
-                              download={f.name}
-                              onClick={(e) => e.stopPropagation()}
-                              className={`p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-opacity ${selectedFile === f.path ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
-                              <Download className="w-3.5 h-3.5" />
-                            </a>
+                            <button
+                              title="Extraer ZIP aquí"
+                              disabled={uploadingZip}
+                              onClick={(e) => { e.stopPropagation(); handleExtractZipFromR2(f.path, f.name); }}
+                              className={`px-1.5 py-0.5 rounded text-xs font-medium flex items-center gap-1 hover:bg-primary/20 text-primary transition-opacity ${selectedFile === f.path ? "opacity-100" : "opacity-0 group-hover:opacity-100"} disabled:opacity-40 disabled:cursor-not-allowed`}>
+                              {uploadingZip ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
+                              Extraer
+                            </button>
                             <div className="relative">
                               <button
                                 title="Opciones"
@@ -1028,14 +1055,21 @@ export default function BotDetailPage() {
                               {openFileMenu === f.path && (
                                 <>
                                   <div className="fixed inset-0 z-10" onClick={() => setOpenFileMenu(null)} />
-                                  <div className="absolute right-0 top-7 z-20 w-36 bg-card border border-border rounded-lg shadow-xl overflow-hidden">
+                                  <div className="absolute right-0 top-7 z-20 w-40 bg-card border border-border rounded-lg shadow-xl overflow-hidden">
+                                    <button
+                                      disabled={uploadingZip}
+                                      onClick={() => { setOpenFileMenu(null); handleExtractZipFromR2(f.path, f.name); }}
+                                      className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-primary/10 hover:text-primary transition-colors text-foreground/80 disabled:opacity-40">
+                                      <Zap className="w-3.5 h-3.5" />
+                                      Extraer ZIP
+                                    </button>
                                     <a
                                       href={`/api/files/${botId}/download?path=${encodeURIComponent(f.path)}`}
                                       download={f.name}
                                       onClick={() => setOpenFileMenu(null)}
                                       className="flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent transition-colors text-foreground/80 cursor-pointer">
                                       <Download className="w-3.5 h-3.5" />
-                                      Exportar
+                                      Descargar
                                     </a>
                                     <button
                                       onClick={() => { setMovingFile({ path: f.path, name: f.name }); setMoveTargetFolder(currentFolder || ""); setShowMoveModal(true); setOpenFileMenu(null); }}
