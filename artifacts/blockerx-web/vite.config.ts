@@ -57,7 +57,6 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
-    sourcemap: false,
   },
   server: {
     port,
@@ -66,12 +65,6 @@ export default defineConfig({
     allowedHosts: true,
     fs: {
       strict: true,
-    },
-    proxy: {
-      "/api": {
-        target: "http://localhost:8000",
-        changeOrigin: true,
-      },
     },
   },
   preview: {

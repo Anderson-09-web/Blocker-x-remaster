@@ -1,5 +1,5 @@
 kind = "web"
-previewPath = "/"
+previewPath = "/blockerx/"
 title = "Blocker X"
 version = "1.0.0"
 id = "artifacts/blockerx"
@@ -11,7 +11,7 @@ version = "1.0.0"
 
 [[services]]
 name = "web"
-paths = [ "/" ]
+paths = [ "/blockerx/" ]
 localPort = 5000
 
 [services.development]
@@ -29,4 +29,3 @@ to = "/index.html"
 [services.env]
 PORT = "5000"
 BASE_PATH = "/"
-VITE_API_URL = "http://localhost:8000"
