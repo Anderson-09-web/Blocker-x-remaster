@@ -24,19 +24,19 @@ function statusBadge(status: string) {
 }
 
 const PYTHON_GUIDE = [
-  "Tu bot usa discord.py con una plantilla lista para usar.",
-  'El prefijo por defecto es "!" — prueba !ping o !hello.',
-  "Edita main.py en el Administrador de Archivos para agregar tus comandos.",
-  "Agrega dependencias a requirements.txt (se instalan automáticamente al iniciar).",
-  "Haz clic en Deploy para lanzar tu bot.",
+  "Tu bot usa discord.py con una plantilla lista para usar. Haz clic en él para ver tu bot.",
+  "Edita main.py en el Administrador de Archivos → haz clic en cualquier archivo para abrirlo y editarlo.",
+  "Organiza tu código en carpetas: usa el botón Carpeta para crear cogs/, utils/, data/, etc. dentro del gestor de archivos.",
+  "Sube un .zip completo con el botón Subir — se extrae automáticamente respetando toda la estructura de carpetas original.",
+  "Agrega dependencias en requirements.txt (una por línea, se instalan solas al iniciar). Luego pulsa Deploy para lanzar.",
 ];
 
 const JS_GUIDE = [
-  "Tu bot usa discord.js v14 con una plantilla lista para usar.",
-  'El prefijo por defecto es "!" — prueba !ping o !hello.',
-  "Edita index.js en el Administrador de Archivos para agregar tus comandos.",
-  "Agrega paquetes a package.json (se instalan automáticamente al iniciar).",
-  "Haz clic en Deploy para lanzar tu bot.",
+  "Tu bot usa discord.js v14 con una plantilla lista para usar. Haz clic en él para ver tu bot.",
+  "Edita index.js en el Administrador de Archivos → haz clic en cualquier archivo para abrirlo y editarlo.",
+  "Organiza tu código en carpetas: usa el botón Carpeta para crear commands/, events/, utils/, etc. dentro del gestor de archivos.",
+  "Sube un .zip completo con el botón Subir — se extrae automáticamente respetando toda la estructura de carpetas original.",
+  "Agrega paquetes en package.json (se instalan solos al iniciar). Luego pulsa Deploy para lanzar.",
 ];
 
 interface BotInfo {

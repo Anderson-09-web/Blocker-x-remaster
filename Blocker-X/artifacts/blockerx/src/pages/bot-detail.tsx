@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { unzipSync } from "fflate";
 import { useParams } from "wouter";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -167,6 +168,8 @@ export default function BotDetailPage() {
   const [sharesLoading, setSharesLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("files");
   const [exportingZip, setExportingZip] = useState(false);
+  const [uploadingZip, setUploadingZip] = useState(false);
+  const [zipProgress, setZipProgress] = useState<{ done: number; total: number } | null>(null);
   const [editingEnvVar, setEditingEnvVar] = useState<{ id: string; key: string } | null>(null);
   const [editingEnvVal, setEditingEnvVal] = useState("");
   const [visibleEnvIds, setVisibleEnvIds] = useState<Set<string>>(new Set());
@@ -422,17 +425,82 @@ export default function BotDetailPage() {
     }
   };
 
-  const handleUploadZipFile = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const base64 = (e.target?.result as string).split(",")[1];
-      const filePath = currentFolder ? `/${currentFolder}` : "/";
-      uploadFile.mutate({ botId, data: { path: filePath, name: file.name, content: base64, encoding: "base64" } }, {
-        onSuccess: () => { refetchFiles(); toast({ title: `${file.name} subido correctamente` }); },
-        onError: () => toast({ title: "Error al subir el archivo", variant: "destructive" }),
+  const handleUploadZipFile = async (file: File) => {
+    const baseFolder = currentFolder ? `/${currentFolder}` : "/";
+
+    if (!file.name.toLowerCase().endsWith(".zip")) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const base64 = (e.target?.result as string).split(",")[1];
+        uploadFile.mutate({ botId, data: { path: baseFolder, name: file.name, content: base64, encoding: "base64" } }, {
+          onSuccess: () => { refetchFiles(); toast({ title: `${file.name} subido correctamente` }); },
+          onError: () => toast({ title: "Error al subir el archivo", variant: "destructive" }),
+        });
+      };
+      reader.readAsDataURL(file);
+      return;
+    }
+
+    setUploadingZip(true);
+    setZipProgress(null);
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const uint8 = new Uint8Array(arrayBuffer);
+      const unzipped = unzipSync(uint8);
+
+      const entries = Object.entries(unzipped).filter(([name]) => {
+        if (name.endsWith("/")) return false;
+        if (name.startsWith("__MACOSX/") || name.includes("/__MACOSX/")) return false;
+        if (name.split("/").some(p => p === ".DS_Store")) return false;
+        return true;
       });
-    };
-    reader.readAsDataURL(file);
+
+      if (entries.length === 0) {
+        toast({ title: "El ZIP está vacío o no tiene archivos válidos", variant: "destructive" });
+        return;
+      }
+
+      // Auto-strip common top-level folder (e.g. mybot-main/ from GitHub exports)
+      const firstParts = entries.map(([name]) => name.split("/")[0]);
+      const allSamePrefix = firstParts.every(p => p === firstParts[0]) && entries.some(([name]) => name.includes("/"));
+      const stripPrefix = allSamePrefix ? firstParts[0] + "/" : "";
+
+      setZipProgress({ done: 0, total: entries.length });
+
+      for (let i = 0; i < entries.length; i++) {
+        const [entryName, data] = entries[i];
+        const relativeName = stripPrefix ? entryName.slice(stripPrefix.length) : entryName;
+        if (!relativeName) continue;
+
+        const lastSlash = relativeName.lastIndexOf("/");
+        const fileName = relativeName.slice(lastSlash + 1);
+        const subDir = lastSlash >= 0 ? relativeName.slice(0, lastSlash) : "";
+        const filePath = subDir ? `${baseFolder}/${subDir}`.replace(/\/\//g, "/") : baseFolder;
+
+        // Convert Uint8Array to base64 without Buffer
+        let binary = "";
+        for (let j = 0; j < data.length; j++) binary += String.fromCharCode(data[j]);
+        const base64 = btoa(binary);
+
+        await new Promise<void>((resolve) => {
+          uploadFile.mutate(
+            { botId, data: { path: filePath, name: fileName, content: base64, encoding: "base64" } },
+            { onSuccess: () => resolve(), onError: () => resolve() }
+          );
+        });
+
+        setZipProgress({ done: i + 1, total: entries.length });
+      }
+
+      refetchFiles();
+      toast({ title: `ZIP extraído: ${entries.length} archivo${entries.length !== 1 ? "s" : ""} subido${entries.length !== 1 ? "s" : ""}` });
+    } catch (err) {
+      console.error("ZIP extraction error:", err);
+      toast({ title: "Error al extraer el ZIP. Verifica que sea un archivo .zip válido.", variant: "destructive" });
+    } finally {
+      setUploadingZip(false);
+      setZipProgress(null);
+    }
   };
 
   const handleCheckIntents = async () => {
@@ -886,9 +954,16 @@ export default function BotDetailPage() {
                       onClick={() => { setShowNewFolder(true); setShowNewFile(false); }}>
                       <FolderPlus className="w-3.5 h-3.5" />Carpeta
                     </Button>
-                    <label title="Subir archivo (incluye .zip)" className="h-7 px-2 text-xs gap-1 flex items-center cursor-pointer rounded text-muted-foreground hover:bg-accent/30 transition-colors">
-                      <Upload className="w-3.5 h-3.5" />Subir
-                      <input type="file" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadZipFile(f); e.target.value = ""; }} />
+                    <label title="Subir archivo o .zip (se extrae automáticamente)" className={`h-7 px-2 text-xs gap-1 flex items-center rounded transition-colors ${uploadingZip ? "cursor-not-allowed opacity-60 text-muted-foreground" : "cursor-pointer text-muted-foreground hover:bg-accent/30"}`}>
+                      {uploadingZip ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          {zipProgress ? `${zipProgress.done}/${zipProgress.total}` : "Extrayendo..."}
+                        </>
+                      ) : (
+                        <><Upload className="w-3.5 h-3.5" />Subir</>
+                      )}
+                      <input type="file" className="hidden" disabled={uploadingZip} onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadZipFile(f); e.target.value = ""; }} />
                     </label>
                   </div>
                 </div>
