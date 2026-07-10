@@ -10,8 +10,8 @@ app.use((req, _res, next) => {
 });
 
 app.use(
-  "/api",
   createProxyMiddleware({
+    pathFilter: "/api",
     target: "http://localhost:8000",
     changeOrigin: true,
     logger: console,
@@ -19,8 +19,8 @@ app.use(
 );
 
 app.use(
-  "/",
   createProxyMiddleware({
+    pathFilter: (path) => !path.startsWith("/api"),
     target: "http://localhost:5000",
     changeOrigin: true,
     ws: true,
