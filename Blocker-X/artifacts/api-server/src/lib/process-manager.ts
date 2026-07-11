@@ -381,14 +381,29 @@ async function spawnBotProcess(
     let args: string[];
 
     if (bot.language === "python") {
-      // Diagnostic: verify Python availability before attempting install
-      const pyCheck = runInstallSync("python3", ["--version"], workDir);
-      const pipCheck = runInstallSync("python3", ["-m", "pip", "--version"], workDir);
-      await addLog(botId, "info", `[System] Python: ${pyCheck.success ? pyCheck.output.trim() : "NOT FOUND - " + pyCheck.output.slice(0, 100)}`);
-      await addLog(botId, "info", `[System] pip: ${pipCheck.success ? pipCheck.output.trim() : "NOT FOUND - " + pipCheck.output.slice(0, 100)}`);
+      // Resolve Python binary: prefer versioned binary (e.g. python3.11) then fallbacks
+      const requestedVersion = (bot as any).runtimeVersion || "3.11";
+      const pyBinCandidates = [
+        `python${requestedVersion}`,
+        `python3.${requestedVersion.split(".")[1] || requestedVersion}`,
+        "python3.11",
+        "python3",
+        "python",
+      ].filter((v, i, a) => a.indexOf(v) === i);
+
+      let pyBin = "python3.11";
+      for (const candidate of pyBinCandidates) {
+        const check = runInstallSync(candidate, ["--version"], workDir);
+        if (check.success) { pyBin = candidate; break; }
+      }
+
+      const pyCheck = runInstallSync(pyBin, ["--version"], workDir);
+      const pipCheck = runInstallSync(pyBin, ["-m", "pip", "--version"], workDir);
+      await addLog(botId, "info", `[System] Python (${pyBin}): ${pyCheck.success ? pyCheck.output.trim() : "NOT FOUND"}`);
+      await addLog(botId, "info", `[System] pip: ${pipCheck.success ? pipCheck.output.trim() : "NOT FOUND"}`);
 
       if (!pyCheck.success) {
-        await addLog(botId, "error", "[System] FATAL: python3 is not installed on this server. Contact support.");
+        await addLog(botId, "error", `[System] FATAL: Python ${requestedVersion} no está disponible en este servidor. Intenta con Python 3.11.`);
         await db.update(botsTable).set({ status: "errored" }).where(eq(botsTable.id, botId));
         return;
       }
@@ -462,22 +477,18 @@ async function spawnBotProcess(
         }
       }
 
-      // Install using python3 -m pip with --break-system-packages (required on Debian/Ubuntu PEP 668 systems)
-      await addLog(botId, "info", `[System] Running: python3 -m pip install -r requirements.txt`);
+      // Install using the resolved pyBin -m pip (works with versioned binaries like python3.11)
+      await addLog(botId, "info", `[System] Running: ${pyBin} -m pip install -r requirements.txt`);
       const PIP_FLAGS = ["-m", "pip", "install", "-r", "requirements.txt", "--quiet", "--exists-action", "i", "--break-system-packages"];
-      const result = runInstallSync("python3", PIP_FLAGS, workDir);
+      const result = runInstallSync(pyBin, PIP_FLAGS, workDir);
       if (!result.success) {
-        // Fallback: pip3 with --break-system-packages
-        const result2 = runInstallSync("pip3", ["install", "-r", "requirements.txt", "--quiet", "--exists-action", "i", "--break-system-packages"], workDir);
+        // Fallback without --break-system-packages (older systems)
+        const result2 = runInstallSync(pyBin, ["-m", "pip", "install", "-r", "requirements.txt", "--quiet", "--exists-action", "i"], workDir);
         if (!result2.success) {
-          // Last resort: without --break-system-packages (older systems)
-          const result3 = runInstallSync("pip3", ["install", "-r", "requirements.txt", "--quiet", "--exists-action", "i"], workDir);
-          if (!result3.success) {
-            const errMsg = result3.output.slice(0, 400);
-            await addLog(botId, "error", `[System] FATAL: Could not install Python dependencies: ${errMsg}`);
-            await db.update(botsTable).set({ status: "errored" }).where(eq(botsTable.id, botId));
-            return;
-          }
+          const errMsg = result2.output.slice(0, 400);
+          await addLog(botId, "error", `[System] FATAL: Could not install Python dependencies: ${errMsg}`);
+          await db.update(botsTable).set({ status: "errored" }).where(eq(botsTable.id, botId));
+          return;
         }
       }
       await addLog(botId, "info", "[System] Python dependencies installed successfully.");
@@ -488,7 +499,7 @@ async function spawnBotProcess(
       await writeFile(path.join(workDir, "bx_config.py"), getBxConfigPy());
       await writeFile(path.join(workDir, "bx_data.py"), getBxDataPy());
       await addLog(botId, "info", "[System] Platform helpers injected (_bx_inject.py, bx_config.py, bx_data.py).");
-      cmd = "python3";
+      cmd = pyBin;
       args = ["-u", "_bx_run.py"];
     } else {
       await addLog(botId, "info", "[System] Installing Node.js dependencies...");

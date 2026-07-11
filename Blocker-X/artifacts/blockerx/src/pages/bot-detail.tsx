@@ -160,6 +160,8 @@ export default function BotDetailPage() {
   const [applyingPresence, setApplyingPresence] = useState(false);
   const [applyingNow, setApplyingNow] = useState(false);
   const [rebuildLoading, setRebuildLoading] = useState(false);
+  const [showVersionPicker, setShowVersionPicker] = useState(false);
+  const [changingVersion, setChangingVersion] = useState(false);
   const [fetchingAvatar, setFetchingAvatar] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [shareDiscordId, setShareDiscordId] = useState("");
@@ -711,17 +713,66 @@ export default function BotDetailPage() {
           {(bot as any).status !== "running" && <Button size="sm" onClick={() => handleAction("start")}><Play className="w-3 h-3 mr-1" />Start</Button>}
           {(bot as any).status === "running" && <Button size="sm" variant="outline" onClick={() => handleAction("stop")}><Square className="w-3 h-3 mr-1" />Stop</Button>}
           <Button size="sm" variant="outline" onClick={() => handleAction("restart")}><RotateCcw className="w-3 h-3 mr-1" />Restart</Button>
-          <Button size="sm" variant="outline" disabled={rebuildLoading} title="Reinstala los paquetes (pip/npm) sin tocar tus archivos" onClick={async () => {
-            setRebuildLoading(true);
-            try {
-              const res = await fetch(`/api/bots/${botId}/reinstall`, { method: "POST", credentials: "include" });
-              if (res.ok) { refresh(); toast({ title: "📦 Reinstalando paquetes", description: "Tus archivos no fueron modificados." }); }
-              else { const d = await res.json(); toast({ title: "Error al reinstalar", description: d.error, variant: "destructive" }); }
-            } catch { toast({ title: "Error de red", variant: "destructive" }); }
-            finally { setRebuildLoading(false); }
-          }}>
-            {rebuildLoading ? <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Reinstalando...</> : <><Rocket className="w-3 h-3 mr-1" />Reinstalar</>}
-          </Button>
+          <div className="relative">
+            <Button size="sm" variant="outline" disabled={changingVersion}
+              title={lang === "python" ? "Seleccionar versión de Python" : "Seleccionar versión de Node.js"}
+              onClick={() => setShowVersionPicker(v => !v)}>
+              {changingVersion
+                ? <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Aplicando...</>
+                : <><Rocket className="w-3 h-3 mr-1" />{lang === "python" ? `Python ${(bot as any).runtimeVersion || "3.11"}` : `Node ${(bot as any).runtimeVersion || "24"}`}</>}
+            </Button>
+            {showVersionPicker && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setShowVersionPicker(false)} />
+                <div className="absolute left-0 top-9 z-40 w-64 bg-card border border-border rounded-lg shadow-xl overflow-hidden">
+                  <div className="px-3 py-2 border-b border-border/40 bg-muted/20">
+                    <p className="text-xs font-semibold text-foreground">{lang === "python" ? "Versión de Python" : "Versión de Node.js"}</p>
+                    <p className="text-xs text-yellow-400/90 mt-0.5 flex items-start gap-1">
+                      <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
+                      Si tus archivos no son compatibles con la versión seleccionada, el bot no funcionará.
+                    </p>
+                  </div>
+                  {(lang === "python"
+                    ? [
+                        { v: "3.12", label: "Python 3.12", tag: "Más reciente" },
+                        { v: "3.11", label: "Python 3.11", tag: "Recomendado ✓" },
+                        { v: "3.10", label: "Python 3.10", tag: "" },
+                      ]
+                    : [
+                        { v: "24", label: "Node.js 24 (LTS)", tag: "Activo ✓" },
+                        { v: "22", label: "Node.js 22", tag: "" },
+                        { v: "20", label: "Node.js 20", tag: "" },
+                        { v: "18", label: "Node.js 18", tag: "" },
+                      ]
+                  ).map(({ v, label, tag }) => {
+                    const current = (bot as any).runtimeVersion || (lang === "python" ? "3.11" : "24");
+                    const isActive = current === v;
+                    return (
+                      <button key={v} disabled={isActive || changingVersion}
+                        onClick={async () => {
+                          setShowVersionPicker(false);
+                          setChangingVersion(true);
+                          try {
+                            const res = await fetch(`/api/bots/${botId}/set-runtime`, {
+                              method: "POST", credentials: "include",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ version: v }),
+                            });
+                            if (res.ok) { refresh(); toast({ title: `✅ Cambiado a ${label}`, description: "Reinstalando paquetes con la nueva versión..." }); }
+                            else { const d = await res.json(); toast({ title: "Error al cambiar versión", description: d.error, variant: "destructive" }); }
+                          } catch { toast({ title: "Error de red", variant: "destructive" }); }
+                          finally { setChangingVersion(false); }
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2 text-xs transition-colors ${isActive ? "bg-primary/15 text-primary cursor-default" : "hover:bg-accent text-foreground/80"}`}>
+                        <span className="font-medium">{label}</span>
+                        {tag && <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isActive ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>{tag}</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
           {isOwner && (canShare ? (
             <Button size="sm" variant="outline" onClick={() => setShowShareDialog(v => !v)}>
               <Share2 className="w-3 h-3 mr-1" />Share

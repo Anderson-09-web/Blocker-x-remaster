@@ -10,6 +10,7 @@ export const botsTable = pgTable("projects", {
   status: text("status").notNull().default("stopped"),
   userId: text("user_id").notNull(),
   mainFile: text("main_file"),
+  runtimeVersion: text("runtime_version"),
   r2Prefix: text("r2_prefix").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
