@@ -397,10 +397,17 @@ async function spawnBotProcess(
         if (check.success) { pyBin = candidate; break; }
       }
 
+      // If the found binary differs from what was requested, update DB so UI reflects reality
+      const actualPyVersion = pyBin.replace(/^python/, ""); // "python3.11" → "3.11"
+      if (actualPyVersion !== requestedVersion) {
+        await db.update(botsTable).set({ runtimeVersion: actualPyVersion }).where(eq(botsTable.id, botId));
+        await addLog(botId, "warn", `[Sistema] Python ${requestedVersion} no disponible en este servidor — usando Python ${actualPyVersion} como alternativa.`);
+      }
+
       const pyCheck = runInstallSync(pyBin, ["--version"], workDir);
       const pipCheck = runInstallSync(pyBin, ["-m", "pip", "--version"], workDir);
-      await addLog(botId, "info", `[System] Python (${pyBin}): ${pyCheck.success ? pyCheck.output.trim() : "NOT FOUND"}`);
-      await addLog(botId, "info", `[System] pip: ${pipCheck.success ? pipCheck.output.trim() : "NOT FOUND"}`);
+      await addLog(botId, "info", `[Sistema] Python (${pyBin}): ${pyCheck.success ? pyCheck.output.trim() : "NO ENCONTRADO"}`);
+      await addLog(botId, "info", `[Sistema] pip: ${pipCheck.success ? pipCheck.output.trim() : "NO ENCONTRADO"}`);
 
       if (!pyCheck.success) {
         await addLog(botId, "error", `[System] FATAL: Python ${requestedVersion} no está disponible en este servidor. Intenta con Python 3.11.`);
