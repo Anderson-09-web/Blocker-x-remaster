@@ -388,6 +388,27 @@ router.post("/bots/:botId/presence/apply-now", requireAuth, requireInvite, async
   res.json({ ok: sent });
 });
 
+router.post("/bots/:botId/set-runtime", requireAuth, requireInvite, async (req, res): Promise<void> => {
+  const botId = getBotId(req);
+  const bot = await requireBotAccess(req, res, botId);
+  if (!bot) return;
+
+  const { version } = req.body as { version: string };
+  if (!version || typeof version !== "string") {
+    res.status(400).json({ error: "version requerida" });
+    return;
+  }
+
+  await db.update(botsTable).set({ runtimeVersion: version }).where(eq(botsTable.id, botId));
+
+  // Reinstall with the new version
+  await reinstallBot({ ...bot, runtimeVersion: version, userId: bot.userId } as any, bot.userId).catch((err: any) => {
+    req.log.error({ err, botId }, "Runtime version change reinstall failed");
+  });
+
+  res.json({ message: "Runtime version updated", version });
+});
+
 router.post("/bots/:botId/reinstall", requireAuth, requireInvite, async (req, res): Promise<void> => {
   const user = (req as any).user;
   const botId = getBotId(req);
