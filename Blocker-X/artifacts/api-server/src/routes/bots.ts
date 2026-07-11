@@ -20,6 +20,7 @@ function formatBot(bot: any) {
     status: bot.status,
     userId: bot.userId,
     mainFile: bot.mainFile,
+    runtimeVersion: bot.runtimeVersion ?? null,
     r2Prefix: bot.r2Prefix,
     createdAt: bot.createdAt.toISOString(),
     updatedAt: bot.updatedAt.toISOString(),

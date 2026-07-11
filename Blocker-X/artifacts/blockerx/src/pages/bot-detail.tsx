@@ -724,27 +724,27 @@ export default function BotDetailPage() {
             {showVersionPicker && (
               <>
                 <div className="fixed inset-0 z-30" onClick={() => setShowVersionPicker(false)} />
-                <div className="absolute left-0 top-9 z-40 w-64 bg-card border border-border rounded-lg shadow-xl overflow-hidden">
-                  <div className="px-3 py-2 border-b border-border/40 bg-muted/20">
+                <div className="absolute left-0 top-9 z-40 w-72 bg-card border border-border rounded-lg shadow-xl overflow-hidden">
+                  <div className="px-3 py-2.5 border-b border-border/40 bg-muted/20">
                     <p className="text-xs font-semibold text-foreground">{lang === "python" ? "Versión de Python" : "Versión de Node.js"}</p>
-                    <p className="text-xs text-yellow-400/90 mt-0.5 flex items-start gap-1">
+                    <p className="text-[11px] text-yellow-400/90 mt-1 flex items-start gap-1.5">
                       <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
-                      Si tus archivos no son compatibles con la versión seleccionada, el bot no funcionará.
+                      Si tus archivos no son compatibles con la versión elegida, el bot no funcionará.
                     </p>
                   </div>
+                  <div className="divide-y divide-border/30">
                   {(lang === "python"
                     ? [
-                        { v: "3.12", label: "Python 3.12", tag: "Más reciente" },
-                        { v: "3.11", label: "Python 3.11", tag: "Recomendado ✓" },
-                        { v: "3.10", label: "Python 3.10", tag: "" },
+                        { v: "3.13", label: "Python 3.13", badge: "Último", badgeColor: "bg-blue-500/20 text-blue-400", desc: "Lanzado Oct 2024 · Soporte activo hasta 2029" },
+                        { v: "3.12", label: "Python 3.12", badge: "Estable", badgeColor: "bg-green-500/20 text-green-400", desc: "Soporte activo hasta 2028 · Recomendado" },
+                        { v: "3.11", label: "Python 3.11", badge: "Seguridad", badgeColor: "bg-yellow-500/20 text-yellow-400", desc: "Solo actualizaciones de seguridad hasta 2027" },
                       ]
                     : [
-                        { v: "24", label: "Node.js 24 (LTS)", tag: "Activo ✓" },
-                        { v: "22", label: "Node.js 22", tag: "" },
-                        { v: "20", label: "Node.js 20", tag: "" },
-                        { v: "18", label: "Node.js 18", tag: "" },
+                        { v: "24", label: "Node.js 24", badge: "Actual", badgeColor: "bg-blue-500/20 text-blue-400", desc: "Current — Lanzado Abr 2025" },
+                        { v: "22", label: "Node.js 22", badge: "LTS Activo", badgeColor: "bg-green-500/20 text-green-400", desc: "Long-Term Support hasta Apr 2027 · Recomendado" },
+                        { v: "20", label: "Node.js 20", badge: "Mantenimiento", badgeColor: "bg-yellow-500/20 text-yellow-400", desc: "Mantenimiento LTS hasta Apr 2026" },
                       ]
-                  ).map(({ v, label, tag }) => {
+                  ).map(({ v, label, badge, badgeColor, desc }) => {
                     const current = (bot as any).runtimeVersion || (lang === "python" ? "3.11" : "24");
                     const isActive = current === v;
                     return (
@@ -758,17 +758,25 @@ export default function BotDetailPage() {
                               headers: { "Content-Type": "application/json" },
                               body: JSON.stringify({ version: v }),
                             });
-                            if (res.ok) { refresh(); toast({ title: `✅ Cambiado a ${label}`, description: "Reinstalando paquetes con la nueva versión..." }); }
+                            if (res.ok) { refresh(); toast({ title: `Cambiado a ${label}`, description: "Reinstalando paquetes con la nueva versión..." }); }
                             else { const d = await res.json(); toast({ title: "Error al cambiar versión", description: d.error, variant: "destructive" }); }
                           } catch { toast({ title: "Error de red", variant: "destructive" }); }
                           finally { setChangingVersion(false); }
                         }}
-                        className={`w-full flex items-center justify-between px-3 py-2 text-xs transition-colors ${isActive ? "bg-primary/15 text-primary cursor-default" : "hover:bg-accent text-foreground/80"}`}>
-                        <span className="font-medium">{label}</span>
-                        {tag && <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isActive ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>{tag}</span>}
+                        className={`w-full flex items-start gap-2.5 px-3 py-2.5 text-left transition-colors ${isActive ? "bg-primary/10 cursor-default" : "hover:bg-accent/60 cursor-pointer"} disabled:opacity-60`}>
+                        <div className={`mt-0.5 w-2 h-2 rounded-full shrink-0 ${isActive ? "bg-primary" : "bg-border"}`} />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-xs font-semibold ${isActive ? "text-primary" : "text-foreground"}`}>{label}</span>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${isActive ? "bg-primary/20 text-primary" : badgeColor}`}>{badge}</span>
+                            {isActive && <span className="text-[10px] text-primary/70 font-medium">← Activa</span>}
+                          </div>
+                          <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight">{desc}</p>
+                        </div>
                       </button>
                     );
                   })}
+                  </div>
                 </div>
               </>
             )}
