@@ -134,6 +134,9 @@ export default function BotDetailPage() {
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const editorGutterRef = useRef<HTMLDivElement>(null);
   const editorTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const logsEndRef = useRef<HTMLDivElement>(null);
+  const logsContainerRef = useRef<HTMLDivElement>(null);
+  const [logsAutoScroll, setLogsAutoScroll] = useState(true);
   const [fileContent, setFileContent] = useState("");
   const [newEnvKey, setNewEnvKey] = useState("");
   const [newEnvVal, setNewEnvVal] = useState("");
@@ -256,6 +259,13 @@ export default function BotDetailPage() {
   useEffect(() => {
     if (activeTab === "users") fetchShares();
   }, [activeTab]);
+
+  // Auto-scroll logs to bottom when new entries arrive
+  useEffect(() => {
+    if (logsAutoScroll && logsEndRef.current) {
+      logsEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [logs, logsAutoScroll]);
 
   const handleShare = async () => {
     if (!shareDiscordId.trim()) return;
@@ -1311,23 +1321,86 @@ export default function BotDetailPage() {
 
         {/* Logs */}
         <TabsContent value="logs" className="mt-4">
-          <Card className="bg-card/60 border-border/40">
-            <CardHeader><CardTitle className="text-sm font-medium">Salida de Consola</CardTitle></CardHeader>
-            <CardContent>
-              <div className="h-96 overflow-y-auto font-mono text-xs space-y-1 bg-background/40 rounded-md p-4 border border-border/30">
-                {(!logs || (logs as any[]).length === 0) && (
-                  <p className="text-muted-foreground text-center py-8">Sin logs aún. Inicia tu bot para ver la salida.</p>
-                )}
-                {(logs as any[])?.map((l: any) => (
-                  <div key={l.id} className="flex items-start gap-3">
-                    <span className="text-muted-foreground shrink-0 text-[10px] pt-0.5">{new Date(l.timestamp).toLocaleTimeString()}</span>
-                    <LogLevelBadge level={l.level} />
-                    <span className="text-foreground/80 break-all">{l.message}</span>
-                  </div>
-                ))}
+          <div className="rounded-xl overflow-hidden border border-border/50 shadow-xl">
+            {/* Terminal titlebar */}
+            <div className="flex items-center justify-between px-4 py-2.5 bg-[#1c1c1e] border-b border-white/5">
+              <div className="flex items-center gap-2">
+                <div className="flex gap-1.5">
+                  <span className="w-3 h-3 rounded-full bg-[#ff5f57]" />
+                  <span className="w-3 h-3 rounded-full bg-[#febc2e]" />
+                  <span className="w-3 h-3 rounded-full bg-[#28c840]" />
+                </div>
+                <span className="text-[11px] text-white/30 ml-2 font-mono select-none">consola — {(bot as any)?.name}</span>
               </div>
-            </CardContent>
-          </Card>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setLogsAutoScroll(v => !v)}
+                  className={`text-[10px] px-2 py-0.5 rounded font-mono transition-colors ${logsAutoScroll ? "bg-green-500/20 text-green-400" : "bg-white/5 text-white/30"}`}
+                  title={logsAutoScroll ? "Auto-scroll activado" : "Auto-scroll desactivado"}
+                >
+                  {logsAutoScroll ? "↓ auto" : "↓ pausado"}
+                </button>
+                <button
+                  onClick={() => { if (logsEndRef.current) logsEndRef.current.scrollIntoView({ behavior: "smooth" }); }}
+                  className="text-[10px] px-2 py-0.5 rounded font-mono bg-white/5 text-white/30 hover:text-white/60 transition-colors"
+                  title="Ir al final"
+                >
+                  fin ↓
+                </button>
+                <span className="text-[10px] font-mono text-white/20">{(logs as any[])?.length ?? 0} líneas</span>
+              </div>
+            </div>
+            {/* Terminal body */}
+            <div
+              ref={logsContainerRef}
+              onScroll={() => {
+                const el = logsContainerRef.current;
+                if (!el) return;
+                const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+                setLogsAutoScroll(nearBottom);
+              }}
+              className="h-[28rem] overflow-y-auto bg-[#0d1117] p-4 font-mono text-xs"
+            >
+              {(!logs || (logs as any[]).length === 0) ? (
+                <div className="flex flex-col items-center justify-center h-full gap-2 select-none">
+                  <span className="text-white/10 text-3xl">▶</span>
+                  <p className="text-white/20 text-[11px]">Sin logs aún — inicia el bot para ver la salida</p>
+                </div>
+              ) : (
+                <div className="space-y-0.5">
+                  {(logs as any[]).map((l: any) => {
+                    const isSystem = l.message?.startsWith("[Sist") || l.message?.startsWith("[Syst") || l.message?.startsWith("[Block");
+                    const lineColor =
+                      l.level === "error" ? "text-[#ff7b7b]" :
+                      l.level === "warn"  ? "text-[#f5c518]" :
+                      isSystem            ? "text-[#79c0ff]" :
+                                            "text-[#e6edf3]";
+                    const prefix =
+                      l.level === "error" ? "ERR" :
+                      l.level === "warn"  ? "WRN" :
+                      l.level === "debug" ? "DBG" :
+                                            "LOG";
+                    const prefixColor =
+                      l.level === "error" ? "text-[#ff7b7b] bg-[#ff7b7b]/10" :
+                      l.level === "warn"  ? "text-[#f5c518] bg-[#f5c518]/10" :
+                      l.level === "debug" ? "text-white/20 bg-white/5" :
+                      isSystem            ? "text-[#79c0ff] bg-[#79c0ff]/10" :
+                                            "text-[#3fb950] bg-[#3fb950]/10";
+                    const ts = new Date(l.timestamp);
+                    const time = `${ts.getHours().toString().padStart(2,"0")}:${ts.getMinutes().toString().padStart(2,"0")}:${ts.getSeconds().toString().padStart(2,"0")}`;
+                    return (
+                      <div key={l.id} className={`flex items-start gap-2.5 py-0.5 leading-5 hover:bg-white/[0.02] rounded px-1 -mx-1 ${lineColor}`}>
+                        <span className="text-white/20 shrink-0 select-none tabular-nums">{time}</span>
+                        <span className={`shrink-0 text-[9px] px-1 py-px rounded font-bold tracking-wider select-none ${prefixColor}`}>{prefix}</span>
+                        <span className="break-all whitespace-pre-wrap min-w-0">{l.message}</span>
+                      </div>
+                    );
+                  })}
+                  <div ref={logsEndRef} />
+                </div>
+              )}
+            </div>
+          </div>
         </TabsContent>
 
         {/* Deployments */}
