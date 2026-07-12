@@ -1,0 +1,1 @@
+- [Orval codegen mutates hand-written api-zod barrel](orval-api-zod-barrel.md) — every `orval` run appends duplicate wildcard exports to `lib/api-zod/src/index.ts`, reintroducing TS2308 collisions; strip them after each codegen run.
