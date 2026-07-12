@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "Blocker X"
+version = "1.0.0"
+id = "artifacts/blockerx"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 25673
+
+[services.development]
+run = "pnpm --filter @workspace/blockerx run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/blockerx", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/blockerx/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25673"
+BASE_PATH = "/"
