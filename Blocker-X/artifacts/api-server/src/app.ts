@@ -30,6 +30,10 @@ app.use(
 const allowedOrigins = [
   ...(process.env.REPLIT_DOMAINS?.split(",").map((d) => `https://${d.trim()}`) || []),
   ...(process.env.REPLIT_DEV_DOMAIN ? [`https://${process.env.REPLIT_DEV_DOMAIN}`] : []),
+  // On Render, the frontend is a separate static-site domain (e.g.
+  // blocker-x-web.onrender.com), so it must be explicitly allowed here for
+  // credentialed cross-origin requests (cookies) to be accepted.
+  ...(process.env.RENDER_APP_URL ? [process.env.RENDER_APP_URL.replace(/\/$/, "")] : []),
   "http://localhost:3000",
   "http://localhost:5173",
   "http://localhost:80",
