@@ -1,0 +1,1 @@
+- [Express regex-path mount breaks proxied req.url](express-proxy-regex-mount.md) — `app.use(/regex/, proxy)` collapses req.url to "/", causing bogus proxy redirect loops; filter manually instead.

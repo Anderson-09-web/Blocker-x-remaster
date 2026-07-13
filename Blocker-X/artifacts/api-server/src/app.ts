@@ -62,14 +62,20 @@ if (process.env.NODE_ENV === "production") {
 } else {
   const { createProxyMiddleware } = await import("http-proxy-middleware");
   const devPort = process.env.FRONTEND_PORT || "5000";
-  app.use(
-    /^(?!\/api).*/,
-    createProxyMiddleware({
-      target: `http://localhost:${devPort}`,
-      changeOrigin: true,
-      ws: true,
-    }),
-  );
+  const frontendProxy = createProxyMiddleware({
+    target: `http://localhost:${devPort}`,
+    changeOrigin: true,
+    ws: true,
+  });
+  // NOTE: intentionally not using `app.use(/regex/, proxy)` here — Express
+  // treats a RegExp as a mount path and rewrites req.url relative to the
+  // match, which (since the pattern matches the whole path) collapses every
+  // URL down to "/" before it reaches the proxy. Filtering manually inside
+  // a path-less middleware preserves the original req.url.
+  app.use((req, res, next) => {
+    if (req.path.startsWith("/api")) return next();
+    return frontendProxy(req, res, next);
+  });
 }
 
 export default app;

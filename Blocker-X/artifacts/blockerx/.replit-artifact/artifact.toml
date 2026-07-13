@@ -28,4 +28,4 @@ to = "/index.html"
 
 [services.env]
 PORT = "5000"
-BASE_PATH = "/"
+BASE_PATH = "/blockerx/"

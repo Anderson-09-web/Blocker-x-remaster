@@ -101,6 +101,30 @@ Push to your main branch. Render will automatically build and deploy.
 
 ---
 
+## Memory Efficiency (Render Free Plan — 512MB)
+
+The API server is tuned to stay under Render's 512MB free-plan RAM limit even while hosting several bots at once. These env vars are already set in `render.yaml`, but if you configure the service manually, add them too:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `NODE_OPTIONS` | `--max-old-space-size=350` | Caps the API server's own V8 heap so it can't grow to consume the whole container. |
+| `BOT_JS_MEMORY_MB` | `96` | Per-bot V8 heap cap (`--max-old-space-size`) injected into every hosted **JavaScript** bot process, so one bot can't starve the others. |
+| `DB_POOL_MAX` | `5` | Caps concurrent Postgres connections from the API server's pool. |
+
+Notes and known limitations:
+
+- These caps only apply to **JavaScript/Node bots**. **Python bots are not memory-capped** — Python's own runtime doesn't take a `NODE_OPTIONS`-style flag, and wrapping every bot in a `ulimit`/cgroup would risk killing legitimate bots that need more headroom (e.g. ones using `numpy`/image libraries). If you host memory-heavy Python bots, budget their RAM manually against the 512MB ceiling.
+- With these caps, a realistic budget on the free plan is the API server (~150–250MB under normal load) plus roughly **2–4 lightweight JS bots** (~96MB each) before you risk hitting the container limit. Fewer, if bots are Python or memory-heavy.
+- If you see bots being OOM-killed or the service restarting under load, either lower `BOT_JS_MEMORY_MB` further, reduce the number of concurrently hosted bots, or upgrade to a paid Render plan.
+
+---
+
+## Secrets: Replit vs. Render
+
+The secrets used to test this app in Replit (`NEON_DATABASE_URL`, `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_BOT_TOKEN`, `CF_R2_*`, `GROQ_API_KEY`, `SESSION_SECRET`) are stored as **Replit secrets** and are only available inside this Replit workspace. Render does not read them automatically — when you create the Render service(s), you must re-enter the same values in the Render dashboard's **Environment** tab (see Step 3 above).
+
+---
+
 ## Bot Runtime Requirements
 
 Blocker X runs Discord bots as real child processes on the API server. For this to work on Render:
