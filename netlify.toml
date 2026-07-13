@@ -1,0 +1,23 @@
+[build]
+  # Netlify's build container runs from the repo root, so pnpm workspaces
+  # (lib/*) are reachable from here.
+  command = "pnpm install --frozen-lockfile && pnpm --filter @workspace/blockerx run build"
+  publish = "artifacts/blockerx/dist/public"
+
+[build.environment]
+  # vite.config.ts requires both of these to be set or the build throws.
+  # BASE_PATH must be "/" for a standalone Netlify deploy (Replit uses an
+  # artifact prefix instead, which doesn't apply here).
+  BASE_PATH = "/"
+  # PORT is only read by the dev/preview server, never by `vite build`, but
+  # the config file evaluates it unconditionally, so it must be present.
+  PORT = "3000"
+  NODE_VERSION = "20"
+
+# Blocker X is a client-side single-page app (wouter router). Netlify must
+# serve index.html for any path that isn't a real static file, or refreshing
+# a route like /dashboard/bots would 404.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
