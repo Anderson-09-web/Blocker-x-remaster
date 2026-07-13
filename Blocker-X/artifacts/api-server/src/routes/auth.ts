@@ -17,6 +17,11 @@ function getRedirectUri(req: any): string {
   if (domains) return `https://${domains}/api/auth/discord/callback`;
   const devDomain = process.env.REPLIT_DEV_DOMAIN;
   if (devDomain) return `https://${devDomain}/api/auth/discord/callback`;
+  // Render sets RENDER_EXTERNAL_URL automatically for every service (e.g.
+  // https://blocker-x-api.onrender.com). RENDER_API_URL is a manual override
+  // in case the automatic one isn't set or you're on a custom domain.
+  const renderUrl = process.env.RENDER_EXTERNAL_URL || process.env.RENDER_API_URL;
+  if (renderUrl) return `${renderUrl.replace(/\/$/, "")}/api/auth/discord/callback`;
   return `http://localhost:${process.env.PORT || 5000}/api/auth/discord/callback`;
 }
 
