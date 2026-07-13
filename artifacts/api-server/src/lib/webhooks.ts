@@ -87,7 +87,12 @@ function sign(secret: string, body: string): string {
   return "sha256=" + createHmac("sha256", secret).update(body).digest("hex");
 }
 
-async function deliverWebhook(url: string, secret: string, payload: WebhookPayload): Promise<void> {
+async function deliverWebhook(
+  url: string,
+  secret: string,
+  payload: WebhookPayload,
+  authHeader?: { name: string; value: string } | null
+): Promise<void> {
   // Re-validate at delivery time (in case IPs changed or URL was saved before guard existed)
   try {
     await validateWebhookUrl(url);
@@ -103,14 +108,18 @@ async function deliverWebhook(url: string, secret: string, payload: WebhookPaylo
   const timeout = setTimeout(() => controller.abort(), 10_000);
 
   try {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "X-BX-Signature": sig,
+      "X-BX-Event": payload.event,
+      "User-Agent": "BX-Platform/1.0",
+    };
+    if (authHeader?.name && authHeader?.value) {
+      headers[authHeader.name] = authHeader.value;
+    }
     const res = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-BX-Signature": sig,
-        "X-BX-Event": payload.event,
-        "User-Agent": "BX-Platform/1.0",
-      },
+      headers,
       body,
       signal: controller.signal,
       // Disable redirect following to prevent redirect-based SSRF bypass
@@ -168,7 +177,14 @@ export async function fireWebhooks(
     await Promise.all(
       hooks
         .filter((h) => h.events.includes(event))
-        .map((h) => deliverWebhook(h.url, h.secret, payload))
+        .map((h) =>
+          deliverWebhook(
+            h.url,
+            h.secret,
+            payload,
+            h.authHeaderName && h.authHeaderValue ? { name: h.authHeaderName, value: h.authHeaderValue } : null
+          )
+        )
     );
   } catch (err) {
     logger.error({ err }, "fireWebhooks error");

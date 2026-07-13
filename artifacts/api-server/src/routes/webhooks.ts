@@ -21,15 +21,22 @@ router.get("/webhooks", requireAuth, requireInvite, async (req, res): Promise<vo
 // POST /webhooks — create a new webhook
 router.post("/webhooks", requireAuth, requireInvite, async (req, res): Promise<void> => {
   const userId = getUserId(req);
-  const { botId, url, events, enabled } = req.body as {
+  const { botId, url, events, enabled, authHeaderName, authHeaderValue } = req.body as {
     botId?: string;
     url: string;
     events: string[];
     enabled?: boolean;
+    authHeaderName?: string;
+    authHeaderValue?: string;
   };
 
   if (!url || typeof url !== "string") {
     res.status(400).json({ error: "URL requerida." });
+    return;
+  }
+
+  if (authHeaderName?.trim() && !authHeaderValue?.trim()) {
+    res.status(400).json({ error: "Escribe el valor (key) del header personalizado, o deja ambos campos vacíos." });
     return;
   }
   try {
@@ -63,6 +70,8 @@ router.post("/webhooks", requireAuth, requireInvite, async (req, res): Promise<v
     botId: botId ?? null,
     url: url.trim(),
     secret,
+    authHeaderName: authHeaderName?.trim() || null,
+    authHeaderValue: authHeaderValue?.trim() || null,
     events: validEvents,
     enabled: enabled !== false,
   });
@@ -82,11 +91,13 @@ router.put("/webhooks/:id", requireAuth, requireInvite, async (req, res): Promis
     return;
   }
 
-  const { url, events, enabled, botId } = req.body as {
+  const { url, events, enabled, botId, authHeaderName, authHeaderValue } = req.body as {
     url?: string;
     events?: string[];
     enabled?: boolean;
     botId?: string | null;
+    authHeaderName?: string | null;
+    authHeaderValue?: string | null;
   };
 
   const update: Partial<typeof existing> = {};
@@ -99,6 +110,17 @@ router.put("/webhooks/:id", requireAuth, requireInvite, async (req, res): Promis
       return;
     }
     update.url = url.trim();
+  }
+
+  if (authHeaderName !== undefined || authHeaderValue !== undefined) {
+    const name = (authHeaderName ?? existing.authHeaderName)?.trim() || null;
+    const value = (authHeaderValue ?? existing.authHeaderValue)?.trim() || null;
+    if (name && !value) {
+      res.status(400).json({ error: "Escribe el valor (key) del header personalizado, o deja ambos campos vacíos." });
+      return;
+    }
+    update.authHeaderName = name;
+    update.authHeaderValue = value;
   }
 
   if (events !== undefined) {
@@ -169,14 +191,18 @@ router.post("/webhooks/:id/test", requireAuth, requireInvite, async (req, res): 
   let error: string | undefined;
 
   try {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "X-BX-Signature": sig,
+      "X-BX-Event": "ping",
+      "User-Agent": "BX-Platform/1.0",
+    };
+    if (hook.authHeaderName && hook.authHeaderValue) {
+      headers[hook.authHeaderName] = hook.authHeaderValue;
+    }
     const resp = await fetch(hook.url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-BX-Signature": sig,
-        "X-BX-Event": "ping",
-        "User-Agent": "BX-Platform/1.0",
-      },
+      headers,
       body,
       signal: controller.signal,
     });
@@ -188,7 +214,17 @@ router.post("/webhooks/:id/test", requireAuth, requireInvite, async (req, res): 
     clearTimeout(timeout);
   }
 
-  res.json({ ok, statusCode, error });
+  // A 404/non-2xx here means the URL you configured rejected the request —
+  // that's your receiving endpoint, not this platform. Common causes: wrong
+  // path, endpoint expects a different HTTP method, or it needs the auth
+  // header configured on this webhook to accept the request.
+  const hint = !error && statusCode === 404
+    ? "Tu endpoint respondió 404 (no encontrado). Revisa que la URL sea exactamente la ruta que espera recibir el webhook en tu servidor — no es un error de la plataforma."
+    : !error && statusCode === 401
+    ? "Tu endpoint respondió 401 (no autorizado). Si requiere una clave/API key, configúrala en el campo 'Header de autenticación' de este webhook."
+    : undefined;
+
+  res.json({ ok, statusCode, error, hint });
 });
 
 // GET /webhooks/events — list all available event types

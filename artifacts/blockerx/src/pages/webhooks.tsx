@@ -24,8 +24,10 @@ const ALL_EVENTS = [
   { key: "bot_restarted", label: "Bot Restarted", color: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
 ];
 
+const API_BASE = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
+
 async function apiFetch(path: string, options?: RequestInit) {
-  const res = await fetch(`/api${path}`, { credentials: "include", ...options });
+  const res = await fetch(`${API_BASE}/api${path}`, { credentials: "include", ...options });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
     throw new Error(data.error || "Error en la petición");
@@ -38,6 +40,8 @@ interface WebhookData {
   botId: string | null;
   url: string;
   secret: string;
+  authHeaderName: string | null;
+  authHeaderValue: string | null;
   events: string[];
   enabled: boolean;
   createdAt: string;
@@ -48,6 +52,8 @@ interface WebhookFormData {
   events: string[];
   enabled: boolean;
   botId: string;
+  authHeaderName: string;
+  authHeaderValue: string;
 }
 
 const defaultForm: WebhookFormData = {
@@ -55,6 +61,8 @@ const defaultForm: WebhookFormData = {
   events: ["bot_started", "bot_stopped", "bot_crashed"],
   enabled: true,
   botId: "",
+  authHeaderName: "",
+  authHeaderValue: "",
 };
 
 export default function WebhooksPage() {
@@ -121,7 +129,7 @@ export default function WebhooksPage() {
       } else {
         toast({
           title: "Ping fallido",
-          description: data.error || `Status: ${data.statusCode}`,
+          description: data.hint || data.error || `Tu endpoint respondió con status ${data.statusCode}.`,
           variant: "destructive",
         });
       }
@@ -153,6 +161,8 @@ export default function WebhooksPage() {
       events: hook.events,
       enabled: hook.enabled,
       botId: hook.botId ?? "",
+      authHeaderName: hook.authHeaderName ?? "",
+      authHeaderValue: hook.authHeaderValue ?? "",
     });
     setDialogOpen(true);
   }
@@ -170,6 +180,8 @@ export default function WebhooksPage() {
       events: form.events,
       enabled: form.enabled,
       botId: form.botId || undefined,
+      authHeaderName: form.authHeaderName.trim() || null,
+      authHeaderValue: form.authHeaderValue.trim() || null,
     };
     if (editHook) {
       updateMutation.mutate({ id: editHook.id, body });
@@ -228,6 +240,10 @@ export default function WebhooksPage() {
               <p className="font-semibold text-foreground mb-1">Scope de bots</p>
               <p className="text-muted-foreground">Puedes crear webhooks globales (todos tus bots) o específicos por bot ID.</p>
             </div>
+            <div>
+              <p className="font-semibold text-foreground mb-1">Header de autenticación</p>
+              <p className="text-muted-foreground">Si tu servidor requiere su propia API key, agrégala como header personalizado al crear el webhook.</p>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -277,6 +293,11 @@ export default function WebhooksPage() {
                             <Badge variant={hook.enabled ? "default" : "secondary"} className="text-xs shrink-0">
                               {hook.enabled ? "Activo" : "Inactivo"}
                             </Badge>
+                            {hook.authHeaderName && (
+                              <Badge variant="outline" className="text-xs shrink-0">
+                                Header: {hook.authHeaderName}
+                              </Badge>
+                            )}
                           </div>
 
                           {/* Events */}
@@ -382,6 +403,25 @@ export default function WebhooksPage() {
                 value={form.botId}
                 onChange={(e) => setForm((f) => ({ ...f, botId: e.target.value }))}
               />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Header de autenticación (opcional)</Label>
+              <p className="text-xs text-muted-foreground">
+                Si tu endpoint pide una key/token propio para aceptar requests, ponla aquí — se enviará como un header en cada entrega.
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  placeholder="Nombre del header (ej: Authorization)"
+                  value={form.authHeaderName}
+                  onChange={(e) => setForm((f) => ({ ...f, authHeaderName: e.target.value }))}
+                />
+                <Input
+                  placeholder="Valor / key"
+                  value={form.authHeaderValue}
+                  onChange={(e) => setForm((f) => ({ ...f, authHeaderValue: e.target.value }))}
+                />
+              </div>
             </div>
 
             <div className="space-y-2">

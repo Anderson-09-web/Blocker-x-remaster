@@ -16,6 +16,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogFooter,
+  AlertDialogTitle, AlertDialogDescription, AlertDialogCancel, AlertDialogAction,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Play, Square, RotateCcw, Rocket, Plus, Trash2, Save, Folder, FileText, ChevronLeft, Settings, BookOpen, FilePlus, FolderPlus, X, Loader2, RefreshCw, ChevronRight, FolderInput, AlertTriangle, Share2, Users, Crown, Bot, Download, Edit2, Eye, EyeOff, ShieldCheck, ShieldAlert, ExternalLink, Upload, MoreHorizontal, Zap } from "lucide-react";
 import { Link } from "wouter";
@@ -165,6 +169,7 @@ export default function BotDetailPage() {
   const [rebuildLoading, setRebuildLoading] = useState(false);
   const [showVersionPicker, setShowVersionPicker] = useState(false);
   const [changingVersion, setChangingVersion] = useState(false);
+  const [pendingVersion, setPendingVersion] = useState<{ v: string; label: string } | null>(null);
   const [fetchingAvatar, setFetchingAvatar] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [shareDiscordId, setShareDiscordId] = useState("");
@@ -596,18 +601,38 @@ export default function BotDetailPage() {
 
   const [isSavingSettings, setIsSavingSettings] = useState(false);
 
+  /** Guards a promise so it always settles within `ms`, even if the underlying
+   * mutation/fetch never calls back (e.g. a stalled request) — prevents the
+   * "Guardando..." button from getting stuck forever. */
+  function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error(`Tiempo de espera agotado: ${label}`)), ms);
+      promise.then(
+        (v) => { clearTimeout(timer); resolve(v); },
+        (e) => { clearTimeout(timer); reject(e); }
+      );
+    });
+  }
+
   const handleSaveSettings = async () => {
     if (isSavingSettings) return;
     setIsSavingSettings(true);
     const isRunning = (bot as any)?.status === "running";
+    // Hard cap so the button can never look permanently stuck on "Guardando..."
+    // even if a network call stalls with no response.
+    const safetyTimeout = setTimeout(() => setIsSavingSettings(false), 15000);
     try {
       // 1. Save name/description only if actually different
       const updates: any = {};
       if (settingsName.trim() && settingsName.trim() !== (bot as any)?.name) updates.name = settingsName.trim();
       if (settingsDesc !== (bot as any)?.description) updates.description = settingsDesc;
       if (Object.keys(updates).length > 0) {
-        await new Promise<void>((resolve, reject) =>
-          updateBot.mutate({ botId, data: updates }, { onSuccess: () => resolve(), onError: () => reject(new Error("update failed")) })
+        await withTimeout(
+          new Promise<void>((resolve, reject) =>
+            updateBot.mutate({ botId, data: updates }, { onSuccess: () => resolve(), onError: () => reject(new Error("update failed")) })
+          ),
+          10000,
+          "guardando nombre/descripción"
         );
       }
 
@@ -618,12 +643,16 @@ export default function BotDetailPage() {
         { key: "BOT_ACTIVITY_TEXT", value: settingsActivityText.trim() },
         ...(settingsAvatar.trim() ? [{ key: "BOT_AVATAR_URL", value: settingsAvatar.trim() }] : []),
       ];
-      await Promise.all(
-        envUpdates.map(entry =>
-          new Promise<void>((resolve, reject) =>
-            setEnvVar.mutate({ botId, data: entry }, { onSuccess: () => resolve(), onError: () => reject(new Error(`No se pudo guardar ${entry.key}`)) })
+      await withTimeout(
+        Promise.all(
+          envUpdates.map(entry =>
+            new Promise<void>((resolve, reject) =>
+              setEnvVar.mutate({ botId, data: entry }, { onSuccess: () => resolve(), onError: () => reject(new Error(`No se pudo guardar ${entry.key}`)) })
+            )
           )
-        )
+        ),
+        10000,
+        "guardando variables de presencia"
       );
       qc.invalidateQueries({ queryKey: getListEnvVarsQueryKey(botId) });
 
@@ -635,6 +664,7 @@ export default function BotDetailPage() {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ status: settingsStatus, activityType: settingsActivityType, activityText: settingsActivityText.trim() }),
+        signal: AbortSignal.timeout(10000),
       });
       if (!presRes.ok) throw new Error("No se pudo enviar la presencia al bot");
 
@@ -657,9 +687,16 @@ export default function BotDetailPage() {
         }, 4000);
       }
       setTimeout(() => setSettingsSaved(false), 3000);
-    } catch {
-      toast({ title: "Error al guardar la configuración", variant: "destructive" });
+    } catch (err: any) {
+      toast({
+        title: "Error al guardar la configuración",
+        description: err?.message?.startsWith("Tiempo de espera")
+          ? "El servidor tardó demasiado en responder. Revisa tu conexión e intenta de nuevo."
+          : undefined,
+        variant: "destructive",
+      });
     } finally {
+      clearTimeout(safetyTimeout);
       setIsSavingSettings(false);
     }
   };
@@ -674,6 +711,7 @@ export default function BotDetailPage() {
       const res = await fetch(`/api/bots/${botId}/presence/apply-now`, {
         method: "POST",
         credentials: "include",
+        signal: AbortSignal.timeout(5000),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) {
@@ -759,19 +797,9 @@ export default function BotDetailPage() {
                     const isActive = current === v;
                     return (
                       <button key={v} disabled={isActive || changingVersion}
-                        onClick={async () => {
+                        onClick={() => {
                           setShowVersionPicker(false);
-                          setChangingVersion(true);
-                          try {
-                            const res = await fetch(`/api/bots/${botId}/set-runtime`, {
-                              method: "POST", credentials: "include",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ version: v }),
-                            });
-                            if (res.ok) { refresh(); toast({ title: `Cambiado a ${label}`, description: "Reinstalando paquetes con la nueva versión..." }); }
-                            else { const d = await res.json(); toast({ title: "Error al cambiar versión", description: d.error, variant: "destructive" }); }
-                          } catch { toast({ title: "Error de red", variant: "destructive" }); }
-                          finally { setChangingVersion(false); }
+                          setPendingVersion({ v, label });
                         }}
                         className={`w-full flex items-start gap-2.5 px-3 py-2.5 text-left transition-colors ${isActive ? "bg-primary/10 cursor-default" : "hover:bg-accent/60 cursor-pointer"} disabled:opacity-60`}>
                         <div className={`mt-0.5 w-2 h-2 rounded-full shrink-0 ${isActive ? "bg-primary" : "bg-border"}`} />
@@ -790,6 +818,44 @@ export default function BotDetailPage() {
                 </div>
               </>
             )}
+            <AlertDialog open={!!pendingVersion} onOpenChange={(open) => { if (!open) setPendingVersion(null); }}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-yellow-400" />
+                    ¿Cambiar a {pendingVersion?.label}?
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Si tus archivos no son compatibles con esta versión, el bot podría dejar de funcionar.
+                    Se reinstalarán todas las dependencias ({lang === "python" ? "venv" : "node_modules"}) y el bot se reiniciará automáticamente con la nueva versión.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={async () => {
+                      const target = pendingVersion;
+                      setPendingVersion(null);
+                      if (!target) return;
+                      setChangingVersion(true);
+                      try {
+                        const res = await fetch(`/api/bots/${botId}/set-runtime`, {
+                          method: "POST", credentials: "include",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ version: target.v }),
+                          signal: AbortSignal.timeout(15000),
+                        });
+                        if (res.ok) { refresh(); toast({ title: `Cambiado a ${target.label}`, description: "Reinstalando dependencias y reiniciando el bot con la nueva versión..." }); }
+                        else { const d = await res.json().catch(() => ({})); toast({ title: "Error al cambiar versión", description: d.error, variant: "destructive" }); }
+                      } catch { toast({ title: "Error de red", description: "No se pudo contactar al servidor. Intenta de nuevo.", variant: "destructive" }); }
+                      finally { setChangingVersion(false); }
+                    }}
+                  >
+                    Sí, cambiar versión
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
           {isOwner && (canShare ? (
             <Button size="sm" variant="outline" onClick={() => setShowShareDialog(v => !v)}>

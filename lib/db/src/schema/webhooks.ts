@@ -18,6 +18,11 @@ export const webhooksTable = pgTable("webhooks", {
   botId: text("bot_id"), // null = fires for all bots of that user
   url: text("url").notNull(),
   secret: text("secret").notNull(),
+  // Optional custom header sent on every delivery — lets users authenticate
+  // against receiving endpoints that require their own API key/token
+  // (e.g. "Authorization: Bearer <token>" or "X-Api-Key: <key>").
+  authHeaderName: text("auth_header_name"),
+  authHeaderValue: text("auth_header_value"),
   events: text("events").array().notNull().default([]),
   enabled: boolean("enabled").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
