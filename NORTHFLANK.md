@@ -1,5 +1,16 @@
 # Guía: desplegar Blocker X en Northflank
 
+## Resumen rápido (comandos de build)
+
+| Servicio | Carpeta | Build | Start |
+|---|---|---|---|
+| API Server | `artifacts/api-server` | `pnpm install --frozen-lockfile && pnpm --filter @workspace/api-server run build` | `pnpm --filter @workspace/api-server run start` |
+| Web | `artifacts/blockerx` | `pnpm install --frozen-lockfile && pnpm --filter @workspace/blockerx run build` | sirve `artifacts/blockerx/dist/public` como estático (o `pnpm --filter @workspace/blockerx run serve`) |
+
+En ambos servicios, el **contexto/root del build en Northflank debe ser la raíz del repo** (no la carpeta del artifact), porque usan pnpm workspaces y necesitan acceso a `lib/*`.
+
+Este proyecto ya no usa Render — no quedan `render.yaml`, `Procfile` ni `RENDER_DEPLOYMENT.md` en el repo. Northflank no lee ningún archivo especial del repo para configurar el build; todo se define en su dashboard (o CLI) con los comandos de la tabla de arriba.
+
 Este proyecto tiene dos partes separadas y necesitan **dos servicios** en Northflank:
 
 1. **API Server** (`artifacts/api-server`) — backend Express + Postgres. Ejecuta el panel, la gestión de bots y sus procesos.
@@ -60,10 +71,6 @@ El API Server ya tiene CORS configurado para aceptar cualquier origen con `crede
 ## 4. Discord OAuth callback
 
 Si usas login con Discord, actualiza la "Redirect URI" en el Discord Developer Portal para que apunte al dominio de tu API Server en Northflank (ej. `https://api-xxxxx.northflank.app/api/auth/discord/callback`), además de mantener la de Replit si sigues usando ambos entornos.
-
-## 5. Archivos de Render que puedes ignorar
-
-Este repo trae restos de un intento anterior de deploy en Render (`render.yaml`, `RENDER_DEPLOYMENT.md`, `Procfile` si existen). No son necesarios para Northflank — Northflank usa su propio sistema de build a partir de los comandos que configures en su dashboard, no lee esos archivos. Puedes dejarlos o borrarlos, no afectan el despliegue.
 
 ## Checklist rápido
 
