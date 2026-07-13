@@ -18,9 +18,14 @@ const sslConfig = connectionString.includes("neon.tech")
     ? false
     : false;
 
+// Keep the pool small — Render's free plan (512MB RAM) and Neon's free plan
+// both have limited headroom for concurrent connections/memory.
 export const pool = new Pool({
   connectionString,
   ssl: sslConfig,
+  max: Number(process.env.DB_POOL_MAX ?? 5),
+  idleTimeoutMillis: 30_000,
+  connectionTimeoutMillis: 10_000,
 });
 
 export const db = drizzle(pool, { schema });

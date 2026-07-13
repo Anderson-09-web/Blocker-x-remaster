@@ -531,16 +531,27 @@ async function spawnBotProcess(
     const bxInternalToken = computeBotToken(botId);
     const bxApiUrl = `http://127.0.0.1:${process.env.PORT || 3001}`;
 
+    // Cap each hosted bot's heap so a single runaway bot can't exhaust the
+    // whole container (important on Render's free 512MB plan, which runs
+    // the API server and every hosted bot in the same instance).
+    const botMemoryLimitMb = Number(process.env.BOT_JS_MEMORY_MB ?? 128);
+    const childEnv: NodeJS.ProcessEnv = {
+      ...process.env,
+      ...envVars,
+      BOT_ID: botId,
+      BX_BOT_ID: botId,
+      BX_INTERNAL_TOKEN: bxInternalToken,
+      BX_API_URL: bxApiUrl,
+    };
+    if (cmd === "node") {
+      childEnv.NODE_OPTIONS = [childEnv.NODE_OPTIONS, `--max-old-space-size=${botMemoryLimitMb}`]
+        .filter(Boolean)
+        .join(" ");
+    }
+
     const child = spawn(cmd, args, {
       cwd: workDir,
-      env: {
-        ...process.env,
-        ...envVars,
-        BOT_ID: botId,
-        BX_BOT_ID: botId,
-        BX_INTERNAL_TOKEN: bxInternalToken,
-        BX_API_URL: bxApiUrl,
-      },
+      env: childEnv,
       stdio: ["ignore", "pipe", "pipe"],
     });
 

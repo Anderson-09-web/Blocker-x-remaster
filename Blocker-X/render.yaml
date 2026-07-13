@@ -11,6 +11,15 @@ services:
         value: production
       - key: PORT
         value: 10000
+      # Caps the main server's heap and each hosted bot's heap so the whole
+      # instance stays under Render's free-plan 512MB limit instead of being
+      # OOM-killed. Lower BOT_JS_MEMORY_MB if you host many bots at once.
+      - key: NODE_OPTIONS
+        value: "--max-old-space-size=350"
+      - key: BOT_JS_MEMORY_MB
+        value: "96"
+      - key: DB_POOL_MAX
+        value: "5"
       - key: NEON_DATABASE_URL
         sync: false
       - key: DISCORD_CLIENT_ID
