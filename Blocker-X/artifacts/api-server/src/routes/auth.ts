@@ -25,6 +25,21 @@ function getRedirectUri(req: any): string {
   return `http://localhost:${process.env.PORT || 5000}/api/auth/discord/callback`;
 }
 
+// Where to send the browser back to after login/logout. On Replit, API and
+// frontend share one domain/path prefix, so a relative BASE_PATH works. On
+// Render they're two separate services/domains, so we need an absolute URL
+// (RENDER_APP_URL, set manually to the frontend's onrender.com URL) — a
+// relative "/" would otherwise resolve against the API's own domain.
+function getFrontendBaseUrl(): string {
+  const appUrl = process.env.RENDER_APP_URL;
+  if (appUrl) {
+    const trimmed = appUrl.replace(/\/$/, "");
+    return `${trimmed}/`;
+  }
+  const base = process.env.BASE_PATH || "/";
+  return base.endsWith("/") ? base : `${base}/`;
+}
+
 router.get("/auth/discord", (req, res): void => {
   const redirectUri = getRedirectUri(req);
   const state = randomUUID();
@@ -44,7 +59,7 @@ router.get("/auth/discord/callback", async (req, res): Promise<void> => {
   const savedState = (req.session as any).oauthState;
 
   if (!code || (savedState && state !== savedState)) {
-    res.redirect("/?error=invalid_state");
+    res.redirect(`${getFrontendBaseUrl()}?error=invalid_state`);
     return;
   }
 
@@ -64,7 +79,7 @@ router.get("/auth/discord/callback", async (req, res): Promise<void> => {
 
     if (!tokenRes.ok) {
       req.log.error({ status: tokenRes.status }, "Discord token exchange failed");
-      res.redirect("/?error=auth_failed");
+      res.redirect(`${getFrontendBaseUrl()}?error=auth_failed`);
       return;
     }
 
@@ -75,7 +90,7 @@ router.get("/auth/discord/callback", async (req, res): Promise<void> => {
     });
 
     if (!userRes.ok) {
-      res.redirect("/?error=user_fetch_failed");
+      res.redirect(`${getFrontendBaseUrl()}?error=user_fetch_failed`);
       return;
     }
 
@@ -130,8 +145,7 @@ router.get("/auth/discord/callback", async (req, res): Promise<void> => {
 
     req.log.info({ userId: user.id, isAdmin: user.isAdmin }, "User logged in");
 
-    const frontendUrl = process.env.BASE_PATH || "/";
-    const base = frontendUrl.endsWith("/") ? frontendUrl : `${frontendUrl}/`;
+    const base = getFrontendBaseUrl();
 
     let redirectTarget: string;
     if (user.isBanned) {
@@ -147,14 +161,14 @@ router.get("/auth/discord/callback", async (req, res): Promise<void> => {
     req.session.save((err) => {
       if (err) {
         req.log.error({ err }, "Session save error after login");
-        res.redirect("/?error=server_error");
+        res.redirect(`${getFrontendBaseUrl()}?error=server_error`);
         return;
       }
       res.redirect(redirectTarget);
     });
   } catch (err) {
     req.log.error({ err }, "Discord OAuth callback error");
-    res.redirect("/?error=server_error");
+    res.redirect(`${getFrontendBaseUrl()}?error=server_error`);
   }
 });
 
