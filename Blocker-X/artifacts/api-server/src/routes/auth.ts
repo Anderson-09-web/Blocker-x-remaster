@@ -121,6 +121,12 @@ router.get("/auth/discord/callback", async (req, res): Promise<void> => {
 
     const isOwner = discordUser.id === OWNER_DISCORD_ID;
 
+    // Temporary debug log — shows in Render logs so you can verify the IDs match.
+    req.log.info(
+      { discordId: discordUser.id, ownerIdConfigured: OWNER_DISCORD_ID, isOwner },
+      "Discord OAuth: comparing IDs"
+    );
+
     const [existing] = await db.select().from(usersTable).where(eq(usersTable.discordId, discordUser.id));
 
     let user;
