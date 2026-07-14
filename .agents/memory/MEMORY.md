@@ -1,1 +1,4 @@
 - [Express regex-path mount breaks proxied req.url](express-proxy-regex-mount.md) — `app.use(/regex/, proxy)` collapses req.url to "/", causing bogus proxy redirect loops; filter manually instead.
+- [Render onrender.com split-service cookies](render-onrender-cookie-splitting.md) — two separate onrender.com services are different "sites" to the browser; session cookies get dropped as third-party. Deploy as one service if the app expects one origin.
+- Push to a git remote only via the `gitPush({branch})` CodeExecution callback — plain shell `git push` fails with "Invalid username or token" in this environment.
+- Before assuming a code fix is live, confirm which branch the hosting provider (e.g. Render) actually deploys from — it may differ from the branch this workspace tracks.
