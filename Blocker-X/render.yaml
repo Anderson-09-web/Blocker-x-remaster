@@ -1,32 +1,38 @@
 services:
+  # Single service: the API server also serves the built frontend as static
+  # files (artifacts/api-server/src/app.ts already supports this in
+  # production). Frontend and API MUST share one domain — Render's
+  # onrender.com subdomains are on the public suffix list, so two separate
+  # onrender.com services count as different "sites" to the browser and it
+  # silently drops the session cookie as third-party, breaking login.
   - type: web
-    name: blockerx-api
+    name: blocker-x-api
     runtime: node
-    plan: starter
-    buildCommand: pnpm install && pnpm --filter @workspace/db run push && pnpm --filter @workspace/api-server run build
+    plan: free
+    region: oregon
+    rootDir: .
+    buildCommand: pnpm install --frozen-lockfile && pnpm --filter @workspace/blockerx run build && pnpm --filter @workspace/api-server run build
     startCommand: node artifacts/api-server/dist/index.mjs
     healthCheckPath: /api/healthz
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: 10000
-      # Caps the main server's heap and each hosted bot's heap so the whole
-      # instance stays under Render's free-plan 512MB limit instead of being
-      # OOM-killed. Lower BOT_JS_MEMORY_MB if you host many bots at once.
+      # Frontend and API are served from the same root path here.
+      - key: BASE_PATH
+        value: "/"
+      # Cap the API server's own JS heap so it can't creep up and starve the
+      # Discord bot child processes it spawns — they all share the same
+      # 512 MB free-tier container. Leaves ~300 MB for bots + OS overhead.
       - key: NODE_OPTIONS
-        value: "--max-old-space-size=350"
-      - key: BOT_JS_MEMORY_MB
-        value: "96"
-      - key: DB_POOL_MAX
-        value: "5"
+        value: "--max-old-space-size=192"
+      # PORT is injected automatically by Render — do not set it manually.
       - key: NEON_DATABASE_URL
         sync: false
+      - key: SESSION_SECRET
+        generateValue: true
       - key: DISCORD_CLIENT_ID
         sync: false
       - key: DISCORD_CLIENT_SECRET
-        sync: false
-      - key: DISCORD_BOT_TOKEN
         sync: false
       - key: CF_R2_ACCOUNT_ID
         sync: false
@@ -36,30 +42,5 @@ services:
         sync: false
       - key: CF_R2_BUCKET_NAME
         sync: false
-      - key: CF_R2_ENDPOINT
-        sync: false
       - key: GROQ_API_KEY
         sync: false
-      - key: SESSION_SECRET
-        sync: false
-      - key: RENDER_APP_URL
-        sync: false
-      - key: RENDER_API_URL
-        sync: false
-
-  - type: web
-    name: blockerx-frontend
-    runtime: static
-    buildCommand: BASE_PATH=/ pnpm install && BASE_PATH=/ pnpm --filter @workspace/blockerx run build
-    staticPublishPath: artifacts/blockerx/dist/public
-    envVars:
-      - key: VITE_API_URL
-        sync: false
-    headers:
-      - path: /*
-        name: Cache-Control
-        value: no-cache
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
