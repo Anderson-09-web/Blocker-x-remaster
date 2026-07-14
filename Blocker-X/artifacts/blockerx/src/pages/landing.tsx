@@ -16,11 +16,8 @@ export default function LandingPage() {
     if (isLoading) return;
     if (!user) return;
     if (user.isBanned) return;
-    // Only redirect away from landing if the user already has access.
-    // Users without an invite stay here so they can see the login page.
-    if (user.hasInvite || user.isAdmin) {
-      setLocation(user.isAdmin ? "/admin" : "/dashboard");
-    }
+    // Any logged-in user goes straight to their destination.
+    setLocation(user.isAdmin ? "/admin" : "/dashboard");
   }, [user, isLoading]);
 
   const handleDiscordLogin = () => {

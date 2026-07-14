@@ -61,6 +61,12 @@ async function runStartupMigrations() {
         ADD COLUMN IF NOT EXISTS grants_plan TEXT
     `);
 
+    // Remove invite gate: grant access to every existing user so the old
+    // frontend code (which checks hasInvite) never redirects to /invite.
+    await client.query(`
+      UPDATE users SET has_invite = TRUE WHERE has_invite = FALSE AND is_banned = FALSE
+    `);
+
     logger.info("Startup migrations applied");
   } finally {
     client.release();
