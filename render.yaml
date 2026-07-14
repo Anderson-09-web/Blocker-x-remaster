@@ -12,7 +12,11 @@ services:
     region: oregon
     rootDir: .
     buildCommand: pnpm install --frozen-lockfile && pnpm --filter @workspace/blockerx run build && pnpm --filter @workspace/api-server run build
-    startCommand: node artifacts/api-server/dist/index.mjs
+    # NOTE: the heap cap is applied only to the running server via this flag,
+    # NOT via a NODE_OPTIONS env var — an env var would also apply to the
+    # build step above (vite build needs more than 192MB to bundle and will
+    # OOM/exit 134 if capped that low).
+    startCommand: node --max-old-space-size=192 artifacts/api-server/dist/index.mjs
     healthCheckPath: /api/healthz
     envVars:
       - key: NODE_ENV
@@ -20,11 +24,6 @@ services:
       # Frontend and API are served from the same root path here.
       - key: BASE_PATH
         value: "/"
-      # Cap the API server's own JS heap so it can't creep up and starve the
-      # Discord bot child processes it spawns — they all share the same
-      # 512 MB free-tier container. Leaves ~300 MB for bots + OS overhead.
-      - key: NODE_OPTIONS
-        value: "--max-old-space-size=192"
       # PORT is injected automatically by Render — do not set it manually.
       - key: NEON_DATABASE_URL
         sync: false
