@@ -1,4 +1,14 @@
-- [Express regex-path mount breaks proxied req.url](express-proxy-regex-mount.md) — `app.use(/regex/, proxy)` collapses req.url to "/", causing bogus proxy redirect loops; filter manually instead.
-- [Render onrender.com split-service cookies](render-onrender-cookie-splitting.md) — two separate onrender.com services are different "sites" to the browser; session cookies get dropped as third-party. Deploy as one service if the app expects one origin.
-- Push to a git remote only via the `gitPush({branch})` CodeExecution callback — plain shell `git push` fails with "Invalid username or token" in this environment.
-- Before assuming a code fix is live, confirm which branch the hosting provider (e.g. Render) actually deploys from — it may differ from the branch this workspace tracks.
+- [Neon DB connection](neon-db.md) — use NEON_DATABASE_URL (not DATABASE_URL); SSL must be enabled for neon.tech hosts
+- [Python status injection](python-status-injection.md) — BOT_STATUS only works in template bots; custom bots need _bx_inject.py launcher approach
+- [AI agent path safety](ai-agent-path-safety.md) — /ai/agent must strictly validate filenames; safeName regex must reject ".." and "/" segments
+- [R2 storage pattern](r2-storage.md) — files stored in R2 only, never in DB; prefix = users/{discordId}/bots/{botId}
+- [Tailwind v4 dark class](tailwind-dark.md) — cannot @apply dark in CSS; must set .dark class on html via JS in main.tsx
+- [API codegen collision fix](api-codegen-collision.md) — lib/api-zod/src/index.ts excludes colliding Params types via explicit named exports
+- [Discord OAuth redirect](discord-oauth.md) — redirect URI built dynamically from REPLIT_DOMAINS/REPLIT_DEV_DOMAIN env vars in auth.ts
+- [Dashboard routing sidebar glitch](dashboard-routing.md) — root cause: each Route rendered its own DashboardLayout, remounting sidebar on every nav; fix: single DashboardLayout wrapping nested Switch
+- [Bot config persistence](bot-config-persistence.md) — bot local JSON wiped on restart; fix: bx_config.py helper + /api/bot-internal/config routes + BX_INTERNAL_TOKEN HMAC auth
+- [R2 source of truth — no local→R2 sync on restart](r2-source-of-truth.md) — never call syncWorkdirToR2 inside downloadBotFiles; stale local files overwrite user's R2 edits
+- [bx_data persistent KV store](bx-data-pattern.md) — bx_data.py uses /api/bot-internal/data/:scope/:entityId (R2-backed), in-memory cache; avoids per-ID JSON file sprawl
+- [Bot presence system](bot-presence.md) — BOT_STATUS + BOT_ACTIVITY_TYPE + BOT_ACTIVITY_TEXT env vars; _bx_inject.py patches Client.dispatch to call change_presence on ready
+- [Rebuild vs restart pattern](rebuild-pattern.md) — rebuildBot() in process-manager.ts: wait for exit (like restartBot), wipe workdir, then spawnBotProcess; never call stopBot+startBot without waiting
+- [DM throttle pattern](dm-throttle.md) — sendDiscordDm accepts throttleKey; _dmCooldowns Map enforces 5-min cooldown per botId:eventKey; manual stop → in-app only, no DM

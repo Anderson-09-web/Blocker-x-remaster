@@ -1,6 +1,6 @@
 services:
   # Single service: the API server also serves the built frontend as static
-  # files (Blocker-X/artifacts/api-server/src/app.ts supports this in
+  # files (artifacts/api-server/src/app.ts already supports this in
   # production). Frontend and API MUST share one domain — Render's
   # onrender.com subdomains are on the public suffix list, so two separate
   # onrender.com services count as different "sites" to the browser and it
@@ -10,10 +10,11 @@ services:
     runtime: node
     plan: free
     region: oregon
-    # rootDir points to the Blocker-X subdirectory, which contains the full
-    # pnpm workspace (artifacts/api-server + artifacts/blockerx).
-    rootDir: Blocker-X
-    buildCommand: pnpm install --frozen-lockfile && BASE_PATH=/ pnpm --filter @workspace/blockerx run build && pnpm --filter @workspace/api-server run build
+    rootDir: .
+    # Runs the DB schema push on every deploy — without this, a fresh
+    # database has none of the app's tables and the server crashes on
+    # startup (only a few legacy tables are patched in-process at boot).
+    buildCommand: pnpm install --frozen-lockfile && BASE_PATH=/ pnpm --filter @workspace/blockerx run build && pnpm --filter @workspace/api-server run build && pnpm --filter @workspace/db run push
     # NOTE: the heap cap is applied only to the running server via this flag,
     # NOT via a NODE_OPTIONS env var — an env var would also apply to the
     # build step above (vite build needs more than 192MB to bundle and will

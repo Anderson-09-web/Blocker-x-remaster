@@ -1,22 +1,45 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Blocker X - Discord Bot Hosting Platform API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication operations
+  - name: bots
+    description: Bot management
+  - name: deployments
+    description: Deployment operations
+  - name: files
+    description: File management
+  - name: env
+    description: Environment variables
+  - name: logs
+    description: Log retrieval
+  - name: ai
+    description: AI assistant
+  - name: notifications
+    description: Notifications
+  - name: admin
+    description: Admin operations
+  - name: invite
+    description: Invitation codes
+  - name: profile
+    description: User profile
+  - name: stats
+    description: Statistics
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +47,1005 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # Auth
+  /auth/discord:
+    get:
+      operationId: discordLogin
+      tags: [auth]
+      summary: Initiate Discord OAuth2 login
+      responses:
+        "302":
+          description: Redirect to Discord
+
+  /auth/discord/callback:
+    get:
+      operationId: discordCallback
+      tags: [auth]
+      summary: Discord OAuth2 callback
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: state
+          in: query
+          schema:
+            type: string
+      responses:
+        "302":
+          description: Redirect to dashboard or invite page
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Log out
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current authenticated user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # Invite codes
+  /invite/redeem:
+    post:
+      operationId: redeemInviteCode
+      tags: [invite]
+      summary: Redeem an invitation code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InviteCodeInput"
+      responses:
+        "200":
+          description: Code redeemed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: Invalid or expired code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # Profile
+  /profile:
+    get:
+      operationId: getProfile
+      tags: [profile]
+      summary: Get user profile with usage stats
+      responses:
+        "200":
+          description: Profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+
+    patch:
+      operationId: updateProfile
+      tags: [profile]
+      summary: Update user profile settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileUpdate"
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+
+  # Bots
+  /bots:
+    get:
+      operationId: listBots
+      tags: [bots]
+      summary: List user's bots
+      responses:
+        "200":
+          description: List of bots
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Bot"
+
+    post:
+      operationId: createBot
+      tags: [bots]
+      summary: Create a new bot project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BotInput"
+      responses:
+        "201":
+          description: Bot created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Bot"
+
+  /bots/{botId}:
+    get:
+      operationId: getBot
+      tags: [bots]
+      summary: Get a bot by ID
+      parameters:
+        - name: botId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Bot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Bot"
+
+    patch:
+      operationId: updateBot
+      tags: [bots]
+      summary: Update a bot
+      parameters:
+        - name: botId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BotUpdate"
+      responses:
+        "200":
+          description: Updated bot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Bot"
+
+    delete:
+      operationId: deleteBot
+      tags: [bots]
+      summary: Delete a bot
+      parameters:
+        - name: botId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /bots/{botId}/start:
+    post:
+      operationId: startBot
+      tags: [bots]
+      summary: Start a bot
+      parameters:
+        - name: botId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Bot starting
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /bots/{botId}/stop:
+    post:
+      operationId: stopBot
+      tags: [bots]
+      summary: Stop a bot
+      parameters:
+        - name: botId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Bot stopped
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /bots/{botId}/restart:
+    post:
+      operationId: restartBot
+      tags: [bots]
+      summary: Restart a bot
+      parameters:
+        - name: botId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Bot restarting
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /bots/{botId}/status:
+    get:
+      operationId: getBotStatus
+      tags: [bots]
+      summary: Get bot runtime status
+      parameters:
+        - name: botId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Bot status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotStatus"
+
+  # Deployments
+  /deployments:
+    get:
+      operationId: listDeployments
+      tags: [deployments]
+      summary: List all deployments for user
+      responses:
+        "200":
+          description: Deployments list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Deployment"
+
+  /bots/{botId}/deploy:
+    post:
+      operationId: deployBot
+      tags: [deployments]
+      summary: Deploy a bot
+      parameters:
+        - name: botId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deployment started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Deployment"
+
+  /deployments/{deploymentId}:
+    get:
+      operationId: getDeployment
+      tags: [deployments]
+      summary: Get deployment details
+      parameters:
+        - name: deploymentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deployment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Deployment"
+
+  # File Manager
+  /files/{botId}/list:
+    get:
+      operationId: listFiles
+      tags: [files]
+      summary: List files for a bot
+      parameters:
+        - name: botId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: dirPath
+          in: query
+          schema:
+            type: string
+            default: "/"
+      responses:
+        "200":
+          description: Files list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FileEntry"
+
+  /files/{botId}/upload:
+    post:
+      operationId: uploadFile
+      tags: [files]
+      summary: Upload a file
+      parameters:
+        - name: botId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: path
+          in: query
+          schema:
+            type: string
+            default: "/"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FileUploadInput"
+      responses:
+        "200":
+          description: File uploaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileEntry"
+
+  /files/{botId}/delete:
+    delete:
+      operationId: deleteFile
+      tags: [files]
+      summary: Delete a file or folder
+      parameters:
+        - name: botId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FilePathInput"
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /files/{botId}/rename:
+    patch:
+      operationId: renameFile
+      tags: [files]
+      summary: Rename a file
+      parameters:
+        - name: botId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FileRenameInput"
+      responses:
+        "200":
+          description: Renamed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /files/{botId}/read:
+    get:
+      operationId: readFile
+      tags: [files]
+      summary: Read file contents
+      parameters:
+        - name: botId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: filePath
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: File contents
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileContent"
+
+  /files/{botId}/write:
+    put:
+      operationId: writeFile
+      tags: [files]
+      summary: Write/update file contents
+      parameters:
+        - name: botId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FileWriteInput"
+      responses:
+        "200":
+          description: File saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /files/{botId}/mkdir:
+    post:
+      operationId: createFolder
+      tags: [files]
+      summary: Create a folder
+      parameters:
+        - name: botId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FilePathInput"
+      responses:
+        "200":
+          description: Folder created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # Environment Variables
+  /env/{botId}:
+    get:
+      operationId: listEnvVars
+      tags: [env]
+      summary: List environment variables for a bot
+      parameters:
+        - name: botId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Env vars
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EnvVar"
+
+    post:
+      operationId: setEnvVar
+      tags: [env]
+      summary: Create or update an environment variable
+      parameters:
+        - name: botId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EnvVarInput"
+      responses:
+        "200":
+          description: Env var saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvVar"
+
+  /env/{botId}/{varId}:
+    delete:
+      operationId: deleteEnvVar
+      tags: [env]
+      summary: Delete an environment variable
+      parameters:
+        - name: botId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: varId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # Logs
+  /logs/{botId}:
+    get:
+      operationId: getBotLogs
+      tags: [logs]
+      summary: Get bot logs
+      parameters:
+        - name: botId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: logLimit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        "200":
+          description: Logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LogEntry"
+
+  # AI Assistant
+  /ai/chat:
+    post:
+      operationId: aiChat
+      tags: [ai]
+      summary: Chat with Groq AI assistant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AIChatInput"
+      responses:
+        "200":
+          description: AI response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AIChatResponse"
+
+  /ai/usage:
+    get:
+      operationId: getAIUsage
+      tags: [ai]
+      summary: Get AI usage for current user
+      responses:
+        "200":
+          description: Usage stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AIUsage"
+
+  # Notifications
+  /notifications:
+    get:
+      operationId: listNotifications
+      tags: [notifications]
+      summary: List notifications for user
+      responses:
+        "200":
+          description: Notifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Notification"
+
+  /notifications/{notificationId}/read:
+    patch:
+      operationId: markNotificationRead
+      tags: [notifications]
+      summary: Mark a notification as read
+      parameters:
+        - name: notificationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Marked read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /notifications/read-all:
+    patch:
+      operationId: markAllNotificationsRead
+      tags: [notifications]
+      summary: Mark all notifications as read
+      responses:
+        "200":
+          description: All read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # Stats / Dashboard summary
+  /stats/dashboard:
+    get:
+      operationId: getDashboardStats
+      tags: [stats]
+      summary: Get dashboard summary stats
+      responses:
+        "200":
+          description: Dashboard stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /stats/storage:
+    get:
+      operationId: getStorageStats
+      tags: [stats]
+      summary: Get user storage usage stats
+      responses:
+        "200":
+          description: Storage stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageStats"
+
+  # Admin endpoints
+  /admin/stats:
+    get:
+      operationId: getAdminStats
+      tags: [admin]
+      summary: Get system-wide admin stats
+      responses:
+        "200":
+          description: Admin stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStats"
+
+  /admin/users:
+    get:
+      operationId: listUsers
+      tags: [admin]
+      summary: List all users
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: Users list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserList"
+
+  /admin/users/{userId}/ban:
+    patch:
+      operationId: banUser
+      tags: [admin]
+      summary: Ban a user
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Banned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /admin/users/{userId}/unban:
+    patch:
+      operationId: unbanUser
+      tags: [admin]
+      summary: Unban a user
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Unbanned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /admin/users/{userId}/delete:
+    delete:
+      operationId: deleteUser
+      tags: [admin]
+      summary: Delete a user account
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /admin/users/{userId}/upgrade:
+    patch:
+      operationId: upgradeUser
+      tags: [admin]
+      summary: Upgrade user to premium
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Upgraded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /admin/users/{userId}/downgrade:
+    patch:
+      operationId: downgradeUser
+      tags: [admin]
+      summary: Downgrade user to free
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Downgraded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /admin/invites:
+    get:
+      operationId: listInviteCodes
+      tags: [admin]
+      summary: List all invitation codes
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Invite codes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InviteCode"
+
+    post:
+      operationId: createInviteCode
+      tags: [admin]
+      summary: Create an invitation code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InviteCodeCreate"
+      responses:
+        "201":
+          description: Invite code created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InviteCode"
+
+  /admin/invites/{inviteId}:
+    delete:
+      operationId: deleteInviteCode
+      tags: [admin]
+      summary: Delete an invitation code
+      parameters:
+        - name: inviteId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /admin/invites/{inviteId}/toggle:
+    patch:
+      operationId: toggleInviteCode
+      tags: [admin]
+      summary: Enable or disable an invitation code
+      parameters:
+        - name: inviteId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Toggled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InviteCode"
+
+  /admin/broadcast:
+    post:
+      operationId: broadcastAnnouncement
+      tags: [admin]
+      summary: Broadcast an announcement to all users
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnnouncementInput"
+      responses:
+        "200":
+          description: Announcement sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /admin/deployments:
+    get:
+      operationId: listAllDeployments
+      tags: [admin]
+      summary: List all deployments (admin view)
+      responses:
+        "200":
+          description: All deployments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Deployment"
+
+  /admin/logs:
+    get:
+      operationId: getSystemLogs
+      tags: [admin]
+      summary: Get system-wide audit logs
+      parameters:
+        - name: logLimit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        "200":
+          description: System logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuditLog"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +1056,599 @@ components:
       required:
         - status
 
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required:
+        - message
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        discordId:
+          type: string
+        username:
+          type: string
+        discriminator:
+          type: string
+        avatar:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        plan:
+          type: string
+          enum: [free, premium]
+        isAdmin:
+          type: boolean
+        isBanned:
+          type: boolean
+        hasInvite:
+          type: boolean
+        createdAt:
+          type: string
+        lastLogin:
+          type: ["string", "null"]
+      required:
+        - id
+        - discordId
+        - username
+        - plan
+        - isAdmin
+        - isBanned
+        - hasInvite
+        - createdAt
+
+    UserList:
+      type: object
+      properties:
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/User"
+        total:
+          type: integer
+      required:
+        - users
+        - total
+
+    Profile:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        botCount:
+          type: integer
+        storageUsedBytes:
+          type: integer
+        aiUsageCount:
+          type: integer
+        aiUsageLimit:
+          type: ["integer", "null"]
+        deploymentCount:
+          type: integer
+      required:
+        - user
+        - botCount
+        - storageUsedBytes
+        - aiUsageCount
+        - deploymentCount
+
+    ProfileUpdate:
+      type: object
+      properties:
+        timezone:
+          type: string
+        notifications:
+          type: boolean
+
+    InviteCodeInput:
+      type: object
+      properties:
+        code:
+          type: string
+      required:
+        - code
+
+    InviteCode:
+      type: object
+      properties:
+        id:
+          type: string
+        code:
+          type: string
+        maxUses:
+          type: ["integer", "null"]
+        usesCount:
+          type: integer
+        expiresAt:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
+        createdBy:
+          type: string
+        createdAt:
+          type: string
+      required:
+        - id
+        - code
+        - usesCount
+        - isActive
+        - createdBy
+        - createdAt
+
+    InviteCodeCreate:
+      type: object
+      properties:
+        maxUses:
+          type: ["integer", "null"]
+        expiresAt:
+          type: ["string", "null"]
+        customCode:
+          type: ["string", "null"]
+        grantsPremium:
+          type: boolean
+      required: []
+
+    Bot:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        language:
+          type: string
+          enum: [python, javascript]
+        status:
+          type: string
+          enum: [stopped, starting, running, errored, deploying]
+        userId:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+        mainFile:
+          type: ["string", "null"]
+        r2Prefix:
+          type: string
+      required:
+        - id
+        - name
+        - language
+        - status
+        - userId
+        - createdAt
+        - updatedAt
+        - r2Prefix
+
+    BotInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        description:
+          type: string
+        language:
+          type: string
+          enum: [python, javascript]
+        mainFile:
+          type: string
+        token:
+          type: string
+        clientId:
+          type: string
+        clientSecret:
+          type: string
+      required:
+        - name
+        - language
+        - token
+        - clientId
+        - clientSecret
+
+    BotUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        mainFile:
+          type: string
+
+    BotStatus:
+      type: object
+      properties:
+        botId:
+          type: string
+        status:
+          type: string
+        uptime:
+          type: ["integer", "null"]
+        memoryMB:
+          type: ["number", "null"]
+        lastStarted:
+          type: ["string", "null"]
+        lastStopped:
+          type: ["string", "null"]
+      required:
+        - botId
+        - status
+
+    Deployment:
+      type: object
+      properties:
+        id:
+          type: string
+        botId:
+          type: string
+        botName:
+          type: string
+        userId:
+          type: string
+        status:
+          type: string
+          enum: [pending, running, success, failed, cancelled]
+        startedAt:
+          type: string
+        finishedAt:
+          type: ["string", "null"]
+        logs:
+          type: ["string", "null"]
+        errorMessage:
+          type: ["string", "null"]
+      required:
+        - id
+        - botId
+        - botName
+        - userId
+        - status
+        - startedAt
+
+    FileEntry:
+      type: object
+      properties:
+        name:
+          type: string
+        path:
+          type: string
+        type:
+          type: string
+          enum: [file, directory]
+        size:
+          type: ["integer", "null"]
+        lastModified:
+          type: ["string", "null"]
+      required:
+        - name
+        - path
+        - type
+
+    FilePathInput:
+      type: object
+      properties:
+        path:
+          type: string
+      required:
+        - path
+
+    FileRenameInput:
+      type: object
+      properties:
+        oldPath:
+          type: string
+        newPath:
+          type: string
+      required:
+        - oldPath
+        - newPath
+
+    FileContent:
+      type: object
+      properties:
+        path:
+          type: string
+        content:
+          type: string
+        encoding:
+          type: string
+      required:
+        - path
+        - content
+
+    FileWriteInput:
+      type: object
+      properties:
+        path:
+          type: string
+        content:
+          type: string
+      required:
+        - path
+        - content
+
+    FileUploadInput:
+      type: object
+      properties:
+        path:
+          type: string
+        name:
+          type: string
+        content:
+          type: string
+        encoding:
+          type: string
+      required:
+        - path
+        - name
+        - content
+
+    EnvVar:
+      type: object
+      properties:
+        id:
+          type: string
+        botId:
+          type: string
+        key:
+          type: string
+        value:
+          type: string
+        createdAt:
+          type: string
+      required:
+        - id
+        - botId
+        - key
+        - value
+        - createdAt
+
+    EnvVarInput:
+      type: object
+      properties:
+        key:
+          type: string
+        value:
+          type: string
+      required:
+        - key
+        - value
+
+    LogEntry:
+      type: object
+      properties:
+        id:
+          type: string
+        botId:
+          type: string
+        level:
+          type: string
+          enum: [info, warn, error, debug]
+        message:
+          type: string
+        timestamp:
+          type: string
+      required:
+        - id
+        - botId
+        - level
+        - message
+        - timestamp
+
+    AIChatInput:
+      type: object
+      properties:
+        message:
+          type: string
+        botId:
+          type: ["string", "null"]
+        filePath:
+          type: ["string", "null"]
+        language:
+          type: string
+          enum: [python, javascript]
+          default: python
+        context:
+          type: ["string", "null"]
+      required:
+        - message
+
+    AIChatResponse:
+      type: object
+      properties:
+        response:
+          type: string
+        tokensUsed:
+          type: integer
+        usageCount:
+          type: integer
+        usageLimit:
+          type: ["integer", "null"]
+      required:
+        - response
+        - tokensUsed
+        - usageCount
+
+    AIUsage:
+      type: object
+      properties:
+        count:
+          type: integer
+        limit:
+          type: ["integer", "null"]
+        plan:
+          type: string
+      required:
+        - count
+        - plan
+
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        title:
+          type: string
+        message:
+          type: string
+        type:
+          type: string
+          enum: [info, success, warning, error, announcement]
+        isRead:
+          type: boolean
+        createdAt:
+          type: string
+      required:
+        - id
+        - userId
+        - title
+        - message
+        - type
+        - isRead
+        - createdAt
+
+    DashboardStats:
+      type: object
+      properties:
+        totalBots:
+          type: integer
+        runningBots:
+          type: integer
+        totalDeployments:
+          type: integer
+        storageUsedBytes:
+          type: integer
+        aiUsageCount:
+          type: integer
+        recentDeployments:
+          type: array
+          items:
+            $ref: "#/components/schemas/Deployment"
+        recentLogs:
+          type: array
+          items:
+            $ref: "#/components/schemas/LogEntry"
+      required:
+        - totalBots
+        - runningBots
+        - totalDeployments
+        - storageUsedBytes
+        - aiUsageCount
+        - recentDeployments
+        - recentLogs
+
+    StorageStats:
+      type: object
+      properties:
+        usedBytes:
+          type: integer
+        limitBytes:
+          type: integer
+        fileCount:
+          type: integer
+        bots:
+          type: array
+          items:
+            type: object
+            properties:
+              botId:
+                type: string
+              botName:
+                type: string
+              usedBytes:
+                type: integer
+            required:
+              - botId
+              - botName
+              - usedBytes
+      required:
+        - usedBytes
+        - limitBytes
+        - fileCount
+        - bots
+
+    AdminStats:
+      type: object
+      properties:
+        totalUsers:
+          type: integer
+        premiumUsers:
+          type: integer
+        bannedUsers:
+          type: integer
+        totalBots:
+          type: integer
+        runningBots:
+          type: integer
+        totalDeployments:
+          type: integer
+        activeInviteCodes:
+          type: integer
+        totalAIRequests:
+          type: integer
+        onlineUsers:
+          type: integer
+      required:
+        - totalUsers
+        - premiumUsers
+        - bannedUsers
+        - totalBots
+        - runningBots
+        - totalDeployments
+        - activeInviteCodes
+        - totalAIRequests
+        - onlineUsers
+
+    AnnouncementInput:
+      type: object
+      properties:
+        title:
+          type: string
+        message:
+          type: string
+        type:
+          type: string
+          enum: [info, success, warning, error, announcement]
+      required:
+        - title
+        - message
+
+    AuditLog:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: ["string", "null"]
+        action:
+          type: string
+        target:
+          type: ["string", "null"]
+        details:
+          type: ["string", "null"]
+        ip:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required:
+        - id
+        - action
+        - createdAt

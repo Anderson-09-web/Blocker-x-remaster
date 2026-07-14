@@ -1,8 +1,40 @@
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
+import authRouter from "./auth";
+import inviteRouter from "./invite";
+import profileRouter from "./profile";
+import botsRouter from "./bots";
+import deploymentsRouter from "./deployments";
+import filesRouter from "./files";
+import envRouter from "./env";
+import logsRouter from "./logs";
+import aiRouter from "./ai";
+import notificationsRouter from "./notifications";
+import statsRouter from "./stats";
+import adminRouter from "./admin";
+import botInternalRouter from "./bot-internal";
+import bannerRouter from "./banner";
+import webhooksRouter from "./webhooks";
+import docsRouter from "./docs";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(authRouter);
+router.use(inviteRouter);
+router.use(profileRouter);
+router.use(botsRouter);
+router.use(deploymentsRouter);
+router.use(filesRouter);
+router.use(envRouter);
+router.use(logsRouter);
+router.use(aiRouter);
+router.use(notificationsRouter);
+router.use(statsRouter);
+router.use(adminRouter);
+router.use(bannerRouter);
+router.use(webhooksRouter);
+router.use(docsRouter);
+router.use(botInternalRouter);
 
 export default router;
