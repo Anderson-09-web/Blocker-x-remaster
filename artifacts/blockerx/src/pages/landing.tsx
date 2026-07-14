@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { useAuth } from "@/lib/auth-context";
 import { useLocation } from "wouter";
+import bxLogo from "@/assets/bx-logo.png";
 
 export default function LandingPage() {
   const { user, isLoading } = useAuth();
@@ -68,8 +69,8 @@ export default function LandingPage() {
         transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
         className="z-10 flex flex-col items-center max-w-lg text-center px-4"
       >
-        <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-8 border border-primary/20 shadow-[0_0_40px_rgba(var(--primary),0.2)]">
-          <div className="w-8 h-8 bg-primary rounded-lg rotate-45" />
+        <div className="w-20 h-20 rounded-2xl flex items-center justify-center mb-8 overflow-hidden shadow-[var(--glow-primary-lg)]">
+          <img src={bxLogo} alt="Blocker X" className="w-full h-full object-contain" />
         </div>
 
         <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6 text-foreground">
