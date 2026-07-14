@@ -43,3 +43,5 @@ services:
         sync: false
       - key: GROQ_API_KEY
         sync: false
+      - key: DISCORD_OWNER_ID
+        sync: false

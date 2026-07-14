@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { db, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
-const OWNER_DISCORD_ID = "1237892993013387307";
+import { OWNER_DISCORD_ID } from "./session";
 
 export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   const userId = (req.session as any)?.userId;

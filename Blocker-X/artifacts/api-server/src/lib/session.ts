@@ -4,7 +4,7 @@ import { pool } from "@workspace/db";
 
 const PgSession = connectPgSimple(session);
 
-const OWNER_DISCORD_ID = "1237892993013387307";
+const OWNER_DISCORD_ID = process.env.DISCORD_OWNER_ID ?? "1237892993013387307";
 
 // Whether we're running behind a real HTTPS host (Replit deployment or
 // Render) rather than local dev. Don't rely on NODE_ENV alone — Render
