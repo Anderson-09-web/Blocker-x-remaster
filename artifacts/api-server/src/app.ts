@@ -7,6 +7,8 @@ import { createSessionMiddleware } from "./lib/session";
 
 const app: Express = express();
 
+// Required behind Render's/Replit's proxy so secure cookies and the
+// `secure`/`proxy` session settings work correctly.
 app.set("trust proxy", 1);
 
 app.use(
