@@ -61,11 +61,12 @@ async function runStartupMigrations() {
         ADD COLUMN IF NOT EXISTS grants_plan TEXT
     `);
 
-    // Remove invite gate: grant access to every existing user so the old
-    // frontend code (which checks hasInvite) never redirects to /invite.
-    await client.query(`
-      UPDATE users SET has_invite = TRUE WHERE has_invite = FALSE AND is_banned = FALSE
-    `);
+    // NOTE: we previously force-granted has_invite=TRUE to every user here.
+    // That is intentionally removed — bot creation now requires a free
+    // access code (see requireInvite on POST /bots), so new users must
+    // redeem a code before they can create their first bot. Do not
+    // reintroduce a blanket UPDATE here or it will silently disable the gate
+    // on every deploy restart.
 
     logger.info("Startup migrations applied");
   } finally {

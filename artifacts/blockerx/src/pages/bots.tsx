@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { useListBots, useCreateBot, useStartBot, useStopBot, useRestartBot, useDeleteBot, useRedeemInviteCode, getListBotsQueryKey } from "@workspace/api-client-react";
+import { useListBots, useCreateBot, useStartBot, useStopBot, useRestartBot, useDeleteBot, useRedeemInviteCode, getListBotsQueryKey, getGetMeQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/lib/auth-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -47,7 +48,7 @@ interface BotInfo {
 
 type Step = 1 | 2 | 3;
 
-function CreateBotWizard({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+function CreateBotWizard({ onClose, onCreated, hasInvite }: { onClose: () => void; onCreated: () => void; hasInvite: boolean }) {
   const [step, setStep] = useState<Step>(1);
   const [language, setLanguage] = useState<"python" | "javascript" | "">("");
   const [form, setForm] = useState({ name: "", token: "", clientId: "", clientSecret: "", description: "" });
@@ -55,10 +56,15 @@ function CreateBotWizard({ onClose, onCreated }: { onClose: () => void; onCreate
   const [botInfo, setBotInfo] = useState<BotInfo | null>(null);
   const [fetchingInfo, setFetchingInfo] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [showAccessCode, setShowAccessCode] = useState(false);
+  // Free plan users must redeem a free access code before they can create
+  // a bot at all — gate the wizard up front instead of waiting for a
+  // failed create attempt.
+  const [showAccessCode, setShowAccessCode] = useState(!hasInvite);
+  const [accessGateReason, setAccessGateReason] = useState<"required" | "limit">(hasInvite ? "limit" : "required");
   const [accessCode, setAccessCode] = useState("");
   const createBot = useCreateBot();
   const redeemCode = useRedeemInviteCode();
+  const queryClient = useQueryClient();
   const { toast } = useToast();
 
   const fetchBotInfo = async () => {
@@ -117,8 +123,16 @@ function CreateBotWizard({ onClose, onCreated }: { onClose: () => void; onCreate
         },
         onError: (err: any) => {
           const status = err?.status ?? err?.response?.status;
+          const code = err?.data?.code;
+          if (status === 403 && code === "invite_required") {
+            // Server-side gate caught it — show the mandatory access code screen.
+            setAccessGateReason("required");
+            setShowAccessCode(true);
+            return;
+          }
           if (status === 403) {
             // Bot limit reached — show access code dialog instead of a toast
+            setAccessGateReason("limit");
             setShowAccessCode(true);
             return;
           }
@@ -133,11 +147,18 @@ function CreateBotWizard({ onClose, onCreated }: { onClose: () => void; onCreate
     if (!accessCode.trim()) return;
     redeemCode.mutate({ data: { code: accessCode.trim() } }, {
       onSuccess: () => {
-        toast({ title: "Plan activado", description: "Ya puedes crear más bots. Intenta de nuevo." });
-        setShowAccessCode(false);
+        // Refresh the cached user so hasInvite/plan reflect the redeemed code.
+        queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
         setAccessCode("");
-        // Retry bot creation automatically
-        handleCreate();
+        if (accessGateReason === "required") {
+          toast({ title: "Acceso concedido", description: "Ya puedes crear tu bot." });
+          setShowAccessCode(false);
+        } else {
+          toast({ title: "Plan activado", description: "Ya puedes crear más bots. Intenta de nuevo." });
+          setShowAccessCode(false);
+          // Retry bot creation automatically
+          handleCreate();
+        }
       },
       onError: (err: any) => {
         toast({
@@ -151,17 +172,20 @@ function CreateBotWizard({ onClose, onCreated }: { onClose: () => void; onCreate
 
   const guide = language === "python" ? PYTHON_GUIDE : JS_GUIDE;
 
-  // Access code upgrade dialog — shown when free plan limit is reached
+  // Access code gate — shown either up front (free plan, no invite yet) or
+  // when the plan's bot limit has been reached.
   if (showAccessCode) {
     return (
       <DialogContent className="bg-card border-border/60 max-w-sm">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Key className="w-5 h-5 text-primary" />
-            Límite del Plan Free
+            {accessGateReason === "required" ? "Código de Acceso Requerido" : "Límite del Plan Free"}
           </DialogTitle>
           <DialogDescription>
-            El plan gratuito permite crear <strong>1 bot</strong>. Ingresa un código de acceso para desbloquear más.
+            {accessGateReason === "required"
+              ? "Para crear tu bot necesitas un código de acceso gratuito. Pídelo al equipo de Blocker X."
+              : <>El plan gratuito permite crear <strong>1 bot</strong>. Ingresa un código de acceso para desbloquear más.</>}
           </DialogDescription>
         </DialogHeader>
 
@@ -401,6 +425,7 @@ function CreateBotWizard({ onClose, onCreated }: { onClose: () => void; onCreate
 }
 
 export default function BotsPage() {
+  const { user } = useAuth();
   const { data: bots, isLoading } = useListBots({ query: { queryKey: getListBotsQueryKey(), refetchInterval: 5000 } });
   const startBot = useStartBot();
   const stopBot = useStopBot();
@@ -506,7 +531,14 @@ export default function BotsPage() {
       )}
 
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <CreateBotWizard onClose={() => setShowCreate(false)} onCreated={refresh} />
+        {showCreate && (
+          <CreateBotWizard
+            key={user?.hasInvite ? "invited" : "not-invited"}
+            onClose={() => setShowCreate(false)}
+            onCreated={refresh}
+            hasInvite={!!user?.hasInvite || !!user?.isAdmin}
+          />
+        )}
       </Dialog>
     </div>
   );

@@ -42,7 +42,7 @@ export async function requireAdmin(req: Request, res: Response, next: NextFuncti
 export async function requireInvite(req: Request, res: Response, next: NextFunction): Promise<void> {
   const user = (req as any).user;
   if (!user?.hasInvite && !user?.isAdmin) {
-    res.status(403).json({ error: "Invitation required" });
+    res.status(403).json({ error: "Necesitas un código de acceso para crear un bot.", code: "invite_required" });
     return;
   }
   next();

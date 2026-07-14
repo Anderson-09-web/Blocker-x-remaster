@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db, botsTable, deploymentsTable, botLogsTable, envVarsTable, botSharesTable, usersTable } from "@workspace/db";
 import { eq, and, desc, or } from "drizzle-orm";
 import { randomUUID } from "crypto";
-import { requireAuth } from "../lib/auth-middleware";
+import { requireAuth, requireInvite } from "../lib/auth-middleware";
 import { createNotification, notifyUser } from "../lib/notifications";
 import { startBot, stopBot, restartBot, reinstallBot, getProcessStatus, forcePresenceCheck } from "../lib/process-manager";
 import { presenceStore } from "./bot-internal";
@@ -138,7 +138,7 @@ router.get("/bots", requireAuth, async (req, res): Promise<void> => {
   res.json(result);
 });
 
-router.post("/bots", requireAuth, async (req, res): Promise<void> => {
+router.post("/bots", requireAuth, requireInvite, async (req, res): Promise<void> => {
   const user = (req as any).user;
   const { name, description, language, token, clientId, clientSecret } = req.body;
 
