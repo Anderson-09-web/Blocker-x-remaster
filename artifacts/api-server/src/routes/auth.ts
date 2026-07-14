@@ -185,11 +185,28 @@ router.get("/auth/me", async (req, res): Promise<void> => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+  let [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
   if (!user) {
     res.status(401).json({ error: "User not found" });
     return;
   }
+
+  // The owner account is always promoted to admin, but that promotion used
+  // to only run inside the Discord OAuth callback and requireAuth-guarded
+  // routes. A user who already has a session cookie from before that logic
+  // existed (or from a stale DB row) hits this route directly and never
+  // gets re-promoted, so they'd incorrectly get sent to the invite-code
+  // screen. Apply the same auto-promotion here so /auth/me is always
+  // accurate for the owner.
+  const isOwner = user.discordId === OWNER_DISCORD_ID;
+  if (isOwner && (!user.isAdmin || user.isBanned || !user.hasInvite)) {
+    const [updated] = await db.update(usersTable)
+      .set({ isAdmin: true, isBanned: false, hasInvite: true })
+      .where(eq(usersTable.id, user.id))
+      .returning();
+    user = updated;
+  }
+
   res.json({
     id: user.id,
     discordId: user.discordId,
