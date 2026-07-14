@@ -1,17 +1,25 @@
 services:
-  # ── Backend: API Server + bot process host ────────────────────────────
+  # Single service: the API server also serves the built frontend as static
+  # files (artifacts/api-server/src/app.ts already supports this in
+  # production). Frontend and API MUST share one domain — Render's
+  # onrender.com subdomains are on the public suffix list, so two separate
+  # onrender.com services count as different "sites" to the browser and it
+  # silently drops the session cookie as third-party, breaking login.
   - type: web
     name: blocker-x-api
     runtime: node
     plan: free
     region: oregon
     rootDir: .
-    buildCommand: pnpm install --frozen-lockfile && pnpm --filter @workspace/api-server run build
+    buildCommand: pnpm install --frozen-lockfile && pnpm --filter @workspace/blockerx run build && pnpm --filter @workspace/api-server run build
     startCommand: node artifacts/api-server/dist/index.mjs
     healthCheckPath: /api/healthz
     envVars:
       - key: NODE_ENV
         value: production
+      # Frontend and API are served from the same root path here.
+      - key: BASE_PATH
+        value: "/"
       # Cap the API server's own JS heap so it can't creep up and starve the
       # Discord bot child processes it spawns — they all share the same
       # 512 MB free-tier container. Leaves ~300 MB for bots + OS overhead.
@@ -36,24 +44,3 @@ services:
         sync: false
       - key: GROQ_API_KEY
         sync: false
-
-  # ── Frontend: static site (no RAM cost, doesn't share the API's 512 MB) ─
-  - type: web
-    name: blocker-x-web
-    runtime: static
-    rootDir: .
-    buildCommand: pnpm install --frozen-lockfile && pnpm --filter @workspace/blockerx run build
-    staticPublishPath: artifacts/blockerx/dist/public
-    envVars:
-      - key: BASE_PATH
-        value: "/"
-      - key: PORT
-        value: "3000"
-      # Set this once you know the API service's Render URL, e.g.
-      # https://blocker-x-api.onrender.com — required at build time.
-      - key: VITE_API_URL
-        sync: false
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
