@@ -11,7 +11,7 @@ services:
     plan: free
     region: oregon
     rootDir: .
-    buildCommand: pnpm install --frozen-lockfile && pnpm --filter @workspace/blockerx run build && pnpm --filter @workspace/api-server run build
+    buildCommand: pnpm install --frozen-lockfile && BASE_PATH=/ pnpm --filter @workspace/blockerx run build && pnpm --filter @workspace/api-server run build
     # NOTE: the heap cap is applied only to the running server via this flag,
     # NOT via a NODE_OPTIONS env var — an env var would also apply to the
     # build step above (vite build needs more than 192MB to bundle and will
