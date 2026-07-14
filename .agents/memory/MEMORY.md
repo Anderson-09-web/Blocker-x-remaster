@@ -1,3 +1,4 @@
+- [Render deploy structure](render-deploy-structure.md) — repo root must be the only workspace copy for Render; watch for a nested duplicate before touching render.yaml
 - [Neon DB connection](neon-db.md) — use NEON_DATABASE_URL (not DATABASE_URL); SSL must be enabled for neon.tech hosts
 - [Python status injection](python-status-injection.md) — BOT_STATUS only works in template bots; custom bots need _bx_inject.py launcher approach
 - [AI agent path safety](ai-agent-path-safety.md) — /ai/agent must strictly validate filenames; safeName regex must reject ".." and "/" segments
