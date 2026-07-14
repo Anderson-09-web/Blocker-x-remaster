@@ -54,7 +54,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (user.isBanned) return;
 
-    if (!user.hasInvite && !user.isAdmin && location !== "/invite") {
+    // Don't redirect away from the landing page — users without an invite
+    // should still be able to see "/" (e.g. to try a different account).
+    if (!user.hasInvite && !user.isAdmin && location !== "/invite" && location !== "/") {
       setLocation("/invite");
     } else if ((user.hasInvite || user.isAdmin) && (location === "/" || location === "/invite")) {
       setLocation(user.isAdmin ? "/admin" : "/dashboard");
