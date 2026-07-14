@@ -2,6 +2,7 @@ import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import path from "path";
+import { existsSync } from "fs";
 import { fileURLToPath } from "url";
 import router from "./routes";
 import { logger } from "./lib/logger";
@@ -57,13 +58,17 @@ app.use(createSessionMiddleware());
 
 app.use("/api", router);
 
-if (process.env.NODE_ENV === "production") {
-  const frontendDist = path.resolve(__dirname, "../../blockerx/dist/public");
+// Serve the built frontend statically if the dist directory exists.
+// This is checked at runtime so it works regardless of NODE_ENV — on Render
+// the env var may not always be set, but the build output is always present.
+const frontendDist = path.resolve(__dirname, "../../blockerx/dist/public");
+if (existsSync(frontendDist)) {
   app.use(express.static(frontendDist));
   app.get(/.*/, (_req, res) => {
     res.sendFile(path.join(frontendDist, "index.html"));
   });
 } else {
+  // Dev mode: proxy non-API requests to the vite dev server.
   const { createProxyMiddleware } = await import("http-proxy-middleware");
   const devPort = process.env.FRONTEND_PORT || "5000";
   const frontendProxy = createProxyMiddleware({
