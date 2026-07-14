@@ -54,10 +54,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (user.isBanned) return;
 
-    // Logged-in users on the landing page or the old invite gate get sent
-    // straight to their destination. No invite check — the dashboard is open
-    // to all authenticated users; access codes are only needed to upgrade.
-    if (location === "/" || location === "/invite") {
+    // Logged-in users on the landing page go straight to their destination.
+    // /invite is now the "Access Code" upgrade page — logged-in users can
+    // visit it directly without being bounced somewhere else.
+    if (location === "/") {
       setLocation(user.isAdmin ? "/admin" : "/dashboard");
     }
   }, [user, isLoading, isError, error]);

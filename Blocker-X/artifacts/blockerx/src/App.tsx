@@ -85,6 +85,7 @@ function DashboardRoutes() {
         <Route path="/admin/docs"><ProtectedRoute component={AdminDocsPage} adminOnly /></Route>
         <Route path="/admin"><ProtectedRoute component={AdminPage} adminOnly /></Route>
         <Route path="/webhooks"><ProtectedRoute component={WebhooksPage} /></Route>
+        <Route path="/invite"><ProtectedRoute component={InvitePage} /></Route>
         <Route><NotFound /></Route>
       </Switch>
     </DashboardLayout>
@@ -97,7 +98,6 @@ function AppRoutes() {
       <Route path="/" component={LandingPage} />
       <Route path="/privacy" component={PrivacyPage} />
       <Route path="/usage" component={UsagePoliciesPage} />
-      <Route path="/invite" component={InvitePage} />
       {/* All other paths share one stable DashboardLayout — sidebar never remounts */}
       <Route><DashboardRoutes /></Route>
     </Switch>

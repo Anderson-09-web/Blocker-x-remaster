@@ -1,16 +1,16 @@
 import { useState, useEffect } from "react";
-import { useListBots, useCreateBot, useStartBot, useStopBot, useRestartBot, useDeleteBot, getListBotsQueryKey } from "@workspace/api-client-react";
+import { useListBots, useCreateBot, useStartBot, useStopBot, useRestartBot, useDeleteBot, useRedeemInviteCode, getListBotsQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
-import { Plus, Play, Square, RotateCcw, Trash2, ExternalLink, TerminalSquare, CheckCircle, ChevronRight, Code2, Cpu, RefreshCw, Users } from "lucide-react";
+import { Plus, Play, Square, RotateCcw, Trash2, ExternalLink, TerminalSquare, CheckCircle, ChevronRight, Code2, Cpu, RefreshCw, Users, Key, ArrowRight } from "lucide-react";
 
 function statusBadge(status: string) {
   const map: Record<string, string> = {
@@ -55,7 +55,10 @@ function CreateBotWizard({ onClose, onCreated }: { onClose: () => void; onCreate
   const [botInfo, setBotInfo] = useState<BotInfo | null>(null);
   const [fetchingInfo, setFetchingInfo] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showAccessCode, setShowAccessCode] = useState(false);
+  const [accessCode, setAccessCode] = useState("");
   const createBot = useCreateBot();
+  const redeemCode = useRedeemInviteCode();
   const { toast } = useToast();
 
   const fetchBotInfo = async () => {
@@ -113,6 +116,12 @@ function CreateBotWizard({ onClose, onCreated }: { onClose: () => void; onCreate
           onCreated();
         },
         onError: (err: any) => {
+          const status = err?.status ?? err?.response?.status;
+          if (status === 403) {
+            // Bot limit reached — show access code dialog instead of a toast
+            setShowAccessCode(true);
+            return;
+          }
           const msg = err?.data?.error || err?.message || "Error al crear el bot";
           toast({ title: msg, variant: "destructive" });
         },
@@ -120,7 +129,94 @@ function CreateBotWizard({ onClose, onCreated }: { onClose: () => void; onCreate
     );
   };
 
+  const handleRedeemCode = () => {
+    if (!accessCode.trim()) return;
+    redeemCode.mutate({ data: { code: accessCode.trim() } }, {
+      onSuccess: () => {
+        toast({ title: "Plan activado", description: "Ya puedes crear más bots. Intenta de nuevo." });
+        setShowAccessCode(false);
+        setAccessCode("");
+        // Retry bot creation automatically
+        handleCreate();
+      },
+      onError: (err: any) => {
+        toast({
+          title: "Código inválido",
+          description: err?.data?.error || err?.message || "El código no es válido o ha expirado.",
+          variant: "destructive",
+        });
+      },
+    });
+  };
+
   const guide = language === "python" ? PYTHON_GUIDE : JS_GUIDE;
+
+  // Access code upgrade dialog — shown when free plan limit is reached
+  if (showAccessCode) {
+    return (
+      <DialogContent className="bg-card border-border/60 max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Key className="w-5 h-5 text-primary" />
+            Límite del Plan Free
+          </DialogTitle>
+          <DialogDescription>
+            El plan gratuito permite crear <strong>1 bot</strong>. Ingresa un código de acceso para desbloquear más.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 mt-2">
+          {/* Plan comparison */}
+          <div className="rounded-lg border border-border/40 bg-muted/20 divide-y divide-border/30 text-sm">
+            <div className="flex justify-between items-center px-4 py-2.5">
+              <span className="text-muted-foreground">Free</span>
+              <span className="font-medium">1 bot</span>
+            </div>
+            <div className="flex justify-between items-center px-4 py-2.5">
+              <span className="text-primary font-medium flex items-center gap-1"><Key className="w-3 h-3" /> Plus</span>
+              <span className="font-medium">5 bots</span>
+            </div>
+            <div className="flex justify-between items-center px-4 py-2.5">
+              <span className="text-primary font-medium flex items-center gap-1"><Key className="w-3 h-3" /> Blocker X</span>
+              <span className="font-medium">Ilimitado</span>
+            </div>
+          </div>
+
+          {/* Code input */}
+          <div>
+            <Label htmlFor="access-code">Código de Acceso</Label>
+            <Input
+              id="access-code"
+              className="mt-1 font-mono tracking-widest uppercase text-center"
+              placeholder="XXXXXXXXXX"
+              maxLength={20}
+              value={accessCode}
+              onChange={e => setAccessCode(e.target.value.toUpperCase())}
+              onKeyDown={e => e.key === "Enter" && handleRedeemCode()}
+            />
+          </div>
+
+          <div className="flex gap-2">
+            <Button variant="outline" className="flex-1" onClick={() => { setShowAccessCode(false); onClose(); }}>
+              Cancelar
+            </Button>
+            <Button
+              className="flex-1 gap-2"
+              disabled={!accessCode.trim() || redeemCode.isPending}
+              onClick={handleRedeemCode}
+            >
+              {redeemCode.isPending ? (
+                <span className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+              ) : (
+                <ArrowRight className="w-4 h-4" />
+              )}
+              Activar Plan
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    );
+  }
 
   return (
     <DialogContent className="bg-card border-border/60 max-w-lg">
