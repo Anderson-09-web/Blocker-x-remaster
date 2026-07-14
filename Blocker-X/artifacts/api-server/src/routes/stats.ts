@@ -1,12 +1,12 @@
 import { Router } from "express";
 import { db, botsTable, deploymentsTable, botLogsTable, aiUsageTable } from "@workspace/db";
 import { eq, count, desc, sql } from "drizzle-orm";
-import { requireAuth, requireInvite } from "../lib/auth-middleware";
+import { requireAuth } from "../lib/auth-middleware";
 import { r2GetPrefixSize } from "../lib/r2";
 
 const router = Router();
 
-router.get("/stats/dashboard", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.get("/stats/dashboard", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
   const [totalBotsRes] = await db.select({ count: count() }).from(botsTable).where(eq(botsTable.userId, user.id));
   const runningBots = await db.select().from(botsTable)
@@ -40,7 +40,7 @@ router.get("/stats/dashboard", requireAuth, requireInvite, async (req, res): Pro
   });
 });
 
-router.get("/stats/storage", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.get("/stats/storage", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
   const bots = await db.select().from(botsTable).where(eq(botsTable.userId, user.id));
   const storageLimit = user.plan === "blockerx" ? 5 * 1024 * 1024 * 1024 : user.plan === "plus" ? 2 * 1024 * 1024 * 1024 : 512 * 1024 * 1024;

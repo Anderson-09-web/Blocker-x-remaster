@@ -1,11 +1,11 @@
 import { Router } from "express";
 import { db, botLogsTable, botsTable, botSharesTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
-import { requireAuth, requireInvite } from "../lib/auth-middleware";
+import { requireAuth } from "../lib/auth-middleware";
 
 const router = Router();
 
-router.get("/logs/:botId", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.get("/logs/:botId", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
   const botId = Array.isArray(req.params.botId) ? req.params.botId[0] : req.params.botId;
   const limit = Math.min(parseInt(req.query.logLimit as string || "100", 10), 500);

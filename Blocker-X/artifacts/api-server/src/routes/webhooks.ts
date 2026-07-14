@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db, webhooksTable, botsTable, WEBHOOK_EVENTS } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { randomUUID, randomBytes } from "crypto";
-import { requireAuth, requireInvite } from "../lib/auth-middleware";
+import { requireAuth } from "../lib/auth-middleware";
 import { fireWebhooks, validateWebhookUrl } from "../lib/webhooks";
 
 const router = Router();
@@ -12,14 +12,14 @@ function getUserId(req: any): string {
 }
 
 // GET /webhooks — list all webhooks for the authed user
-router.get("/webhooks", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.get("/webhooks", requireAuth, async (req, res): Promise<void> => {
   const userId = getUserId(req);
   const hooks = await db.select().from(webhooksTable).where(eq(webhooksTable.userId, userId));
   res.json({ webhooks: hooks });
 });
 
 // POST /webhooks — create a new webhook
-router.post("/webhooks", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.post("/webhooks", requireAuth, async (req, res): Promise<void> => {
   const userId = getUserId(req);
   const { botId, url, events, enabled } = req.body as {
     botId?: string;
@@ -72,7 +72,7 @@ router.post("/webhooks", requireAuth, requireInvite, async (req, res): Promise<v
 });
 
 // PUT /webhooks/:id — update url, events, enabled, botId
-router.put("/webhooks/:id", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.put("/webhooks/:id", requireAuth, async (req, res): Promise<void> => {
   const userId = getUserId(req);
   const { id } = req.params;
 
@@ -119,7 +119,7 @@ router.put("/webhooks/:id", requireAuth, requireInvite, async (req, res): Promis
 });
 
 // DELETE /webhooks/:id
-router.delete("/webhooks/:id", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.delete("/webhooks/:id", requireAuth, async (req, res): Promise<void> => {
   const userId = getUserId(req);
   const { id } = req.params;
 
@@ -134,7 +134,7 @@ router.delete("/webhooks/:id", requireAuth, requireInvite, async (req, res): Pro
 });
 
 // POST /webhooks/:id/test — fire a test ping event
-router.post("/webhooks/:id/test", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.post("/webhooks/:id/test", requireAuth, async (req, res): Promise<void> => {
   const userId = getUserId(req);
   const { id } = req.params;
 

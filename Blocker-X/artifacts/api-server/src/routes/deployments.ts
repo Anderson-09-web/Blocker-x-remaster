@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db, deploymentsTable, botsTable, botLogsTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 import { randomUUID } from "crypto";
-import { requireAuth, requireInvite } from "../lib/auth-middleware";
+import { requireAuth } from "../lib/auth-middleware";
 import { notifyUser } from "../lib/notifications";
 import { fireWebhooks } from "../lib/webhooks";
 import { startBot, stopBot } from "../lib/process-manager";
@@ -23,7 +23,7 @@ function formatDeployment(d: any) {
   };
 }
 
-router.get("/deployments", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.get("/deployments", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
   const deployments = await db.select().from(deploymentsTable)
     .where(eq(deploymentsTable.userId, user.id))
@@ -32,7 +32,7 @@ router.get("/deployments", requireAuth, requireInvite, async (req, res): Promise
   res.json(deployments.map(formatDeployment));
 });
 
-router.post("/bots/:botId/deploy", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.post("/bots/:botId/deploy", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
   const botId = Array.isArray(req.params.botId) ? req.params.botId[0] : req.params.botId;
   const [bot] = await db.select().from(botsTable)
@@ -103,7 +103,7 @@ router.post("/bots/:botId/deploy", requireAuth, requireInvite, async (req, res):
   res.json(formatDeployment(deployment));
 });
 
-router.get("/deployments/:deploymentId", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.get("/deployments/:deploymentId", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
   const deploymentId = Array.isArray(req.params.deploymentId)
     ? req.params.deploymentId[0]

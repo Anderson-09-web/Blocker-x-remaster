@@ -7,9 +7,9 @@ import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import bxLogo from "@/assets/bx-logo.png";
-import { ArrowRight, Lock } from "lucide-react";
+import { ArrowRight, Key } from "lucide-react";
 
-export default function InvitePage() {
+export default function AccessCodePage() {
   const { user } = useAuth();
   const [code, setCode] = useState("");
   const redeemMutation = useRedeemInviteCode();
@@ -21,13 +21,13 @@ export default function InvitePage() {
     if (!code) return;
     redeemMutation.mutate({ data: { code } }, {
       onSuccess: () => {
-        toast({ title: "Access Granted", description: "Welcome to BX." });
+        toast({ title: "Plan activado", description: "Tu plan ha sido actualizado." });
         window.location.href = "/dashboard";
       },
       onError: (err: any) => {
         toast({
-          title: "Invalid Code",
-          description: err.error || "The invite code is invalid or expired.",
+          title: "Código inválido",
+          description: err.error || "El código de acceso no es válido o ha expirado.",
           variant: "destructive",
         });
       }
@@ -39,7 +39,7 @@ export default function InvitePage() {
       {/* Animated grid */}
       <div className="absolute inset-0 bx-grid-bg opacity-60" />
 
-      {/* Big ambient glow center */}
+      {/* Ambient glow */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
@@ -48,7 +48,6 @@ export default function InvitePage() {
         }}
       />
 
-      {/* Corner glows */}
       <div className="absolute top-0 left-0 w-80 h-80 rounded-full pointer-events-none"
         style={{ background: "radial-gradient(circle, rgba(0,213,255,0.04) 0%, transparent 70%)" }} />
       <div className="absolute bottom-0 right-0 w-80 h-80 rounded-full pointer-events-none"
@@ -61,12 +60,10 @@ export default function InvitePage() {
         transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
         className="relative z-10 w-full max-w-sm"
       >
-        {/* Card border glow */}
         <div className="absolute -inset-px rounded-xl pointer-events-none"
           style={{ background: "linear-gradient(135deg, rgba(0,213,255,0.15) 0%, transparent 50%, rgba(0,213,255,0.05) 100%)" }} />
 
         <div className="relative rounded-xl border border-border/60 bg-card/70 backdrop-blur-xl overflow-hidden">
-          {/* Scanline at top */}
           <div className="absolute top-0 left-0 right-0 h-px"
             style={{ background: "linear-gradient(90deg, transparent, rgba(0,213,255,0.5), transparent)" }} />
 
@@ -85,7 +82,6 @@ export default function InvitePage() {
                   className="w-20 h-20 object-contain bx-logo-glow"
                   style={{ imageRendering: "crisp-edges" }}
                 />
-                {/* Cyan ring */}
                 <motion.div
                   animate={{ opacity: [0.3, 0.7, 0.3] }}
                   transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
@@ -102,12 +98,33 @@ export default function InvitePage() {
               className="text-center mb-8"
             >
               <h1 className="text-2xl font-bold tracking-tight text-foreground mb-2">
-                Private Beta
+                Código de Acceso
               </h1>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                BX is currently invite-only.
-                <br />Enter your code to access the platform.
+                Ingresa tu código para activar el plan Plus
+                <br />o desbloquear bots adicionales.
               </p>
+            </motion.div>
+
+            {/* Plan info */}
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.12, duration: 0.2 }}
+              className="mb-6 rounded-lg border border-border/40 bg-background/30 p-3 text-xs text-muted-foreground space-y-1"
+            >
+              <div className="flex justify-between">
+                <span>Free</span>
+                <span className="text-foreground/70">1 bot</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-primary">Plus <Key className="inline w-3 h-3" /></span>
+                <span className="text-foreground/70">5 bots</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-primary">Blocker X <Key className="inline w-3 h-3" /></span>
+                <span className="text-foreground/70">Ilimitado</span>
+              </div>
             </motion.div>
 
             {/* Form */}
@@ -119,13 +136,13 @@ export default function InvitePage() {
               transition={{ delay: 0.15, duration: 0.2 }}
             >
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
+                <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
                 <Input
-                  placeholder="ENTER INVITE CODE"
+                  placeholder="INGRESA TU CÓDIGO"
                   value={code}
                   onChange={(e) => setCode(e.target.value.toUpperCase())}
                   className="pl-9 h-12 text-center text-sm tracking-[0.2em] uppercase font-mono bg-background/40 border-border/60 focus:border-primary/50 focus:ring-primary/20"
-                  maxLength={12}
+                  maxLength={20}
                 />
               </div>
               <Button
@@ -136,22 +153,29 @@ export default function InvitePage() {
                 {redeemMutation.isPending ? (
                   <span className="flex items-center gap-2">
                     <span className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                    Verifying...
+                    Verificando...
                   </span>
                 ) : (
                   <>
-                    Enter Platform
+                    Activar Plan
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
               </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full text-xs text-muted-foreground"
+                onClick={() => setLocation("/dashboard")}
+              >
+                Volver al dashboard
+              </Button>
             </motion.form>
           </div>
 
-          {/* Footer bar */}
           <div className="px-8 py-3 border-t border-border/40 bg-background/20">
             <p className="text-center text-[10px] text-muted-foreground/40 tracking-widest uppercase">
-              BX Platform · Invite Only
+              BX Platform · Access Codes
             </p>
           </div>
         </div>

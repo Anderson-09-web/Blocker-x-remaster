@@ -177,8 +177,6 @@ router.get("/auth/discord/callback", async (req, res): Promise<void> => {
     let redirectTarget: string;
     if (user.isBanned) {
       redirectTarget = `${base}?error=banned`;
-    } else if (!user.hasInvite && !user.isAdmin) {
-      redirectTarget = `${base}invite`;
     } else if (user.isAdmin) {
       redirectTarget = `${base}admin`;
     } else {

@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db, botsTable, deploymentsTable, botLogsTable, envVarsTable, botSharesTable, usersTable } from "@workspace/db";
 import { eq, and, desc, or } from "drizzle-orm";
 import { randomUUID } from "crypto";
-import { requireAuth, requireInvite } from "../lib/auth-middleware";
+import { requireAuth } from "../lib/auth-middleware";
 import { createNotification, notifyUser } from "../lib/notifications";
 import { startBot, stopBot, restartBot, reinstallBot, getProcessStatus, forcePresenceCheck } from "../lib/process-manager";
 import { presenceStore } from "./bot-internal";
@@ -32,7 +32,7 @@ function getBotId(req: any): string {
 }
 
 // GET /bots/:botId/check-intents — reads stored token from DB, calls Discord, returns actual intent flags
-router.get("/bots/:botId/check-intents", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.get("/bots/:botId/check-intents", requireAuth, async (req, res): Promise<void> => {
   const botId = getBotId(req);
   const bot = await requireBotAccess(req, res, botId);
   if (!bot) return;
@@ -106,7 +106,7 @@ router.post("/bots/verify-token", requireAuth, async (req, res): Promise<void> =
   }
 });
 
-router.get("/bots", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.get("/bots", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
   const ownedBots = await db.select().from(botsTable)
     .where(eq(botsTable.userId, user.id))
@@ -138,7 +138,7 @@ router.get("/bots", requireAuth, requireInvite, async (req, res): Promise<void> 
   res.json(result);
 });
 
-router.post("/bots", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.post("/bots", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
   const { name, description, language, token, clientId, clientSecret } = req.body;
 
@@ -164,7 +164,8 @@ router.post("/bots", requireAuth, requireInvite, async (req, res): Promise<void>
   }
 
   // Enforce bot limits per plan
-  const botLimit = user.plan === "blockerx" ? null : user.plan === "plus" ? 5 : 2;
+  // Free: 1 bot. Plus: 5 bots. Blockerx: unlimited.
+  const botLimit = user.plan === "blockerx" ? null : user.plan === "plus" ? 5 : 1;
   if (botLimit !== null) {
     const existing = await db.select().from(botsTable).where(eq(botsTable.userId, user.id));
     if (existing.length >= botLimit) {
@@ -226,7 +227,7 @@ router.post("/bots", requireAuth, requireInvite, async (req, res): Promise<void>
   res.status(201).json(formatBot(bot));
 });
 
-router.get("/bots/:botId", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.get("/bots/:botId", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
   const botId = getBotId(req);
   const [bot] = await db.select().from(botsTable).where(eq(botsTable.id, botId));
@@ -248,7 +249,7 @@ router.get("/bots/:botId", requireAuth, requireInvite, async (req, res): Promise
   res.json({ ...formatBot(bot), status: getProcessStatus(botId) === "running" ? "running" : bot.status, isOwner });
 });
 
-router.patch("/bots/:botId", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.patch("/bots/:botId", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
   const botId = getBotId(req);
   const { name, description, mainFile } = req.body;
@@ -261,7 +262,7 @@ router.patch("/bots/:botId", requireAuth, requireInvite, async (req, res): Promi
   res.json(formatBot(bot));
 });
 
-router.delete("/bots/:botId", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.delete("/bots/:botId", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
   const botId = getBotId(req);
   const [bot] = await db.select().from(botsTable)
@@ -293,7 +294,7 @@ async function requireBotAccess(req: any, res: any, botId: string): Promise<type
   res.status(404).json({ error: "Bot not found" }); return null;
 }
 
-router.post("/bots/:botId/start", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.post("/bots/:botId/start", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
   const botId = getBotId(req);
   const bot = await requireBotAccess(req, res, botId);
@@ -314,7 +315,7 @@ router.post("/bots/:botId/start", requireAuth, requireInvite, async (req, res): 
   }
 });
 
-router.post("/bots/:botId/stop", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.post("/bots/:botId/stop", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
   const botId = getBotId(req);
   const bot = await requireBotAccess(req, res, botId);
@@ -331,7 +332,7 @@ router.post("/bots/:botId/stop", requireAuth, requireInvite, async (req, res): P
   res.json({ message: "Bot stopped" });
 });
 
-router.post("/bots/:botId/restart", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.post("/bots/:botId/restart", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
   const botId = getBotId(req);
   const bot = await requireBotAccess(req, res, botId);
@@ -349,7 +350,7 @@ router.post("/bots/:botId/restart", requireAuth, requireInvite, async (req, res)
 });
 
 // POST /bots/:botId/presence — apply new presence to running bot without restart (~10s)
-router.post("/bots/:botId/presence", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.post("/bots/:botId/presence", requireAuth, async (req, res): Promise<void> => {
   const botId = getBotId(req);
   const bot = await requireBotAccess(req, res, botId);
   if (!bot) return;
@@ -375,7 +376,7 @@ router.post("/bots/:botId/presence", requireAuth, requireInvite, async (req, res
 
 // POST /bots/:botId/presence/apply-now — force the bot to re-check presence immediately
 // instead of waiting for its own ~3s poll cycle. Bounded response so the UI never hangs.
-router.post("/bots/:botId/presence/apply-now", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.post("/bots/:botId/presence/apply-now", requireAuth, async (req, res): Promise<void> => {
   const botId = getBotId(req);
   const bot = await requireBotAccess(req, res, botId);
   if (!bot) return;
@@ -389,7 +390,7 @@ router.post("/bots/:botId/presence/apply-now", requireAuth, requireInvite, async
   res.json({ ok: sent });
 });
 
-router.post("/bots/:botId/set-runtime", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.post("/bots/:botId/set-runtime", requireAuth, async (req, res): Promise<void> => {
   const botId = getBotId(req);
   const bot = await requireBotAccess(req, res, botId);
   if (!bot) return;
@@ -410,7 +411,7 @@ router.post("/bots/:botId/set-runtime", requireAuth, requireInvite, async (req, 
   res.json({ message: "Runtime version updated", version });
 });
 
-router.post("/bots/:botId/reinstall", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.post("/bots/:botId/reinstall", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
   const botId = getBotId(req);
   const bot = await requireBotAccess(req, res, botId);
@@ -432,7 +433,7 @@ router.post("/bots/:botId/reinstall", requireAuth, requireInvite, async (req, re
 });
 
 // Share routes
-router.get("/bots/:botId/shares", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.get("/bots/:botId/shares", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
   const botId = getBotId(req);
   const [bot] = await db.select().from(botsTable).where(and(eq(botsTable.id, botId), eq(botsTable.userId, user.id)));
@@ -452,7 +453,7 @@ router.get("/bots/:botId/shares", requireAuth, requireInvite, async (req, res): 
   res.json(sharesList.map(s => ({ ...s, createdAt: s.createdAt?.toISOString() })));
 });
 
-router.post("/bots/:botId/share", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.post("/bots/:botId/share", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
   const botId = getBotId(req);
   const [bot] = await db.select().from(botsTable).where(and(eq(botsTable.id, botId), eq(botsTable.userId, user.id)));
@@ -477,7 +478,7 @@ router.post("/bots/:botId/share", requireAuth, requireInvite, async (req, res): 
   });
 });
 
-router.delete("/bots/:botId/shares/:shareId", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.delete("/bots/:botId/shares/:shareId", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
   const botId = getBotId(req);
   const shareId = Array.isArray(req.params.shareId) ? req.params.shareId[0] : req.params.shareId;
@@ -487,7 +488,7 @@ router.delete("/bots/:botId/shares/:shareId", requireAuth, requireInvite, async 
   res.json({ message: "Access removed" });
 });
 
-router.get("/bots/:botId/status", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.get("/bots/:botId/status", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
   const botId = getBotId(req);
   const [bot] = await db.select().from(botsTable)

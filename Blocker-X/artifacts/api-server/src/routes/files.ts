@@ -4,7 +4,7 @@ import { eq, and } from "drizzle-orm";
 import { rmSync } from "fs";
 import path from "path";
 import { deflateRawSync } from "zlib";
-import { requireAuth, requireInvite } from "../lib/auth-middleware";
+import { requireAuth } from "../lib/auth-middleware";
 import { r2ListFiles, r2ListAllFiles, r2ReadFile, r2ReadFileBuffer, r2WriteFile, r2WriteBuffer, r2DeleteFile, r2RenameFile, r2DeletePrefix } from "../lib/r2";
 
 // ---------------------------------------------------------------------------
@@ -100,7 +100,7 @@ async function getBotR2Prefix(botId: string, userId: string): Promise<string | n
   return null;
 }
 
-router.get("/files/:botId/list", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.get("/files/:botId/list", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
   const botId = Array.isArray(req.params.botId) ? req.params.botId[0] : req.params.botId;
   const dirPath = (req.query.dirPath as string) || "/";
@@ -122,7 +122,7 @@ router.get("/files/:botId/list", requireAuth, requireInvite, async (req, res): P
   }
 });
 
-router.post("/files/:botId/upload", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.post("/files/:botId/upload", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
   const botId = Array.isArray(req.params.botId) ? req.params.botId[0] : req.params.botId;
   const { path: filePath, name, content, encoding } = req.body;
@@ -151,7 +151,7 @@ router.post("/files/:botId/upload", requireAuth, requireInvite, async (req, res)
 });
 
 // GET /files/:botId/download?path=... — download a single file from R2
-router.get("/files/:botId/download", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.get("/files/:botId/download", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
   const botId = Array.isArray(req.params.botId) ? req.params.botId[0] : req.params.botId;
   const filePath = req.query.path as string;
@@ -182,7 +182,7 @@ router.get("/files/:botId/download", requireAuth, requireInvite, async (req, res
 });
 
 // GET /files/:botId/export — download all bot files as a ZIP archive
-router.get("/files/:botId/export", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.get("/files/:botId/export", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
   const botId = Array.isArray(req.params.botId) ? req.params.botId[0] : req.params.botId;
   const prefix = await getBotR2Prefix(botId, user.id);
@@ -210,7 +210,7 @@ router.get("/files/:botId/export", requireAuth, requireInvite, async (req, res):
   }
 });
 
-router.delete("/files/:botId/delete", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.delete("/files/:botId/delete", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
   const botId = Array.isArray(req.params.botId) ? req.params.botId[0] : req.params.botId;
   const { path: filePath } = req.body;
@@ -243,7 +243,7 @@ router.delete("/files/:botId/delete", requireAuth, requireInvite, async (req, re
   }
 });
 
-router.patch("/files/:botId/rename", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.patch("/files/:botId/rename", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
   const botId = Array.isArray(req.params.botId) ? req.params.botId[0] : req.params.botId;
   const { oldPath, newPath } = req.body;
@@ -259,7 +259,7 @@ router.patch("/files/:botId/rename", requireAuth, requireInvite, async (req, res
   }
 });
 
-router.get("/files/:botId/read", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.get("/files/:botId/read", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
   const botId = Array.isArray(req.params.botId) ? req.params.botId[0] : req.params.botId;
   const filePath = req.query.filePath as string;
@@ -275,7 +275,7 @@ router.get("/files/:botId/read", requireAuth, requireInvite, async (req, res): P
   }
 });
 
-router.put("/files/:botId/write", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.put("/files/:botId/write", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
   const botId = Array.isArray(req.params.botId) ? req.params.botId[0] : req.params.botId;
   const { path: filePath, content } = req.body;
@@ -291,7 +291,7 @@ router.put("/files/:botId/write", requireAuth, requireInvite, async (req, res): 
   }
 });
 
-router.delete("/files/:botId/rmdir", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.delete("/files/:botId/rmdir", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
   const botId = Array.isArray(req.params.botId) ? req.params.botId[0] : req.params.botId;
   const { path: dirPath } = req.body;
@@ -307,7 +307,7 @@ router.delete("/files/:botId/rmdir", requireAuth, requireInvite, async (req, res
   }
 });
 
-router.post("/files/:botId/mkdir", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.post("/files/:botId/mkdir", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
   const botId = Array.isArray(req.params.botId) ? req.params.botId[0] : req.params.botId;
   const { path: dirPath } = req.body;

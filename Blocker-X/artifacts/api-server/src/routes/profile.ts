@@ -1,12 +1,12 @@
 import { Router } from "express";
 import { db, usersTable, botsTable, deploymentsTable, aiUsageTable } from "@workspace/db";
 import { eq, count, sql } from "drizzle-orm";
-import { requireAuth, requireInvite } from "../lib/auth-middleware";
+import { requireAuth } from "../lib/auth-middleware";
 import { r2GetPrefixSize } from "../lib/r2";
 
 const router = Router();
 
-router.get("/profile", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.get("/profile", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
 
   const [botCountResult] = await db.select({ count: count() }).from(botsTable).where(eq(botsTable.userId, user.id));
@@ -45,7 +45,7 @@ router.get("/profile", requireAuth, requireInvite, async (req, res): Promise<voi
   });
 });
 
-router.patch("/profile", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.patch("/profile", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
   res.json({
     user: {

@@ -2,11 +2,11 @@ import { Router } from "express";
 import { db, envVarsTable, botsTable, botSharesTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { randomUUID } from "crypto";
-import { requireAuth, requireInvite } from "../lib/auth-middleware";
+import { requireAuth } from "../lib/auth-middleware";
 
 const router = Router();
 
-router.get("/env/:botId", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.get("/env/:botId", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
   const botId = Array.isArray(req.params.botId) ? req.params.botId[0] : req.params.botId;
   const [bot] = await db.select().from(botsTable).where(eq(botsTable.id, botId));
@@ -22,7 +22,7 @@ router.get("/env/:botId", requireAuth, requireInvite, async (req, res): Promise<
   res.json(vars.map(v => ({ id: v.id, botId: v.botId, key: v.key, value: v.value, createdAt: v.createdAt.toISOString() })));
 });
 
-router.post("/env/:botId", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.post("/env/:botId", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
   const botId = Array.isArray(req.params.botId) ? req.params.botId[0] : req.params.botId;
   const [bot] = await db.select().from(botsTable).where(and(eq(botsTable.id, botId), eq(botsTable.userId, user.id)));
@@ -41,7 +41,7 @@ router.post("/env/:botId", requireAuth, requireInvite, async (req, res): Promise
   res.json({ id: envVar.id, botId: envVar.botId, key: envVar.key, value: envVar.value, createdAt: envVar.createdAt.toISOString() });
 });
 
-router.delete("/env/:botId/:varId", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.delete("/env/:botId/:varId", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
   const botId = Array.isArray(req.params.botId) ? req.params.botId[0] : req.params.botId;
   const varId = Array.isArray(req.params.varId) ? req.params.varId[0] : req.params.varId;

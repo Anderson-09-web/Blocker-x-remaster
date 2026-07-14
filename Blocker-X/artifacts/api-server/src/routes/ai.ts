@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db, aiUsageTable, botsTable } from "@workspace/db";
 import { eq, count, and, gte } from "drizzle-orm";
 import { randomUUID } from "crypto";
-import { requireAuth, requireInvite } from "../lib/auth-middleware";
+import { requireAuth } from "../lib/auth-middleware";
 import { r2ReadFile, r2WriteFile, r2ListAllFiles, r2DeleteFile } from "../lib/r2";
 
 const router = Router();
@@ -239,7 +239,7 @@ function parseAgentActions(aiResponse: string): {
 }
 
 // ─── Simple chat ─────────────────────────────────────────────────────────────
-router.post("/ai/chat", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.post("/ai/chat", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
   const { message, botId, filePath, language = "python", context } = req.body;
 
@@ -282,7 +282,7 @@ ${context ? `Contexto adicional: ${context}` : ""}`;
 });
 
 // ─── Agent: Phase 1 — plan (analyse + generate, but DO NOT write files yet) ──
-router.post("/ai/agent/plan", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.post("/ai/agent/plan", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
   const { message, botId, language = "python" } = req.body;
 
@@ -348,7 +348,7 @@ router.post("/ai/agent/plan", requireAuth, requireInvite, async (req, res): Prom
 });
 
 // ─── Agent: Phase 2 — apply (write the pre-computed actions to R2) ────────────
-router.post("/ai/agent/apply", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.post("/ai/agent/apply", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
   const { botId, actions } = req.body;
 
@@ -389,7 +389,7 @@ router.post("/ai/agent/apply", requireAuth, requireInvite, async (req, res): Pro
 });
 
 // ─── Usage ─────────────────────────────────────────────────────────────────────
-router.get("/ai/usage", requireAuth, requireInvite, async (req, res): Promise<void> => {
+router.get("/ai/usage", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
   const count_ = await getUsageCount(user.id);
   const usageLimit = user.plan === "blockerx" ? null : user.plan === "plus" ? 50 : FREE_DAILY_LIMIT;
