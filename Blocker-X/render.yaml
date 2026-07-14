@@ -28,7 +28,7 @@ services:
       - key: NEON_DATABASE_URL
         sync: false
       - key: SESSION_SECRET
-        generateValue: true
+        sync: false
       - key: DISCORD_CLIENT_ID
         sync: false
       - key: DISCORD_CLIENT_SECRET
