@@ -13,3 +13,4 @@
 - [Bot presence system](bot-presence.md) — BOT_STATUS + BOT_ACTIVITY_TYPE + BOT_ACTIVITY_TEXT env vars; _bx_inject.py patches Client.dispatch to call change_presence on ready
 - [Rebuild vs restart pattern](rebuild-pattern.md) — rebuildBot() in process-manager.ts: wait for exit (like restartBot), wipe workdir, then spawnBotProcess; never call stopBot+startBot without waiting
 - [DM throttle pattern](dm-throttle.md) — sendDiscordDm accepts throttleKey; _dmCooldowns Map enforces 5-min cooldown per botId:eventKey; manual stop → in-app only, no DM
+- [In-app pip/npm console — removed](bot-console-feature-removed.md) — crashed shared server on first real install; reverted, don't rebuild without isolating installs from the API process
