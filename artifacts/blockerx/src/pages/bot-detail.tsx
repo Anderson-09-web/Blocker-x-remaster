@@ -137,6 +137,10 @@ export default function BotDetailPage() {
   const logsEndRef = useRef<HTMLDivElement>(null);
   const logsContainerRef = useRef<HTMLDivElement>(null);
   const [logsAutoScroll, setLogsAutoScroll] = useState(true);
+  const [consoleHistory, setConsoleHistory] = useState<{ type: "cmd" | "out" | "err"; text: string }[]>([]);
+  const [consoleInput, setConsoleInput] = useState("");
+  const [consoleSending, setConsoleSending] = useState(false);
+  const consoleEndRef = useRef<HTMLDivElement>(null);
   const [fileContent, setFileContent] = useState("");
   const [newEnvKey, setNewEnvKey] = useState("");
   const [newEnvVal, setNewEnvVal] = useState("");
@@ -266,6 +270,39 @@ export default function BotDetailPage() {
       logsEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [logs, logsAutoScroll]);
+
+  useEffect(() => {
+    if (consoleEndRef.current) consoleEndRef.current.scrollIntoView({ behavior: "smooth" });
+  }, [consoleHistory]);
+
+  const handleConsoleSubmit = async () => {
+    const command = consoleInput.trim();
+    if (!command || consoleSending) return;
+    setConsoleHistory(h => [...h, { type: "cmd", text: command }]);
+    setConsoleInput("");
+    setConsoleSending(true);
+    try {
+      const res = await fetch(`/api/bots/${botId}/console`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ command }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setConsoleHistory(h => [...h, { type: "out", text: data.message }]);
+        if (data.changed?.length) {
+          qc.invalidateQueries({ queryKey: getGetBotQueryKey(botId) });
+        }
+      } else {
+        setConsoleHistory(h => [...h, { type: "err", text: data.error || "Comando rechazado." }]);
+      }
+    } catch {
+      setConsoleHistory(h => [...h, { type: "err", text: "Error de conexión con el servidor." }]);
+    } finally {
+      setConsoleSending(false);
+    }
+  };
 
   const handleShare = async () => {
     if (!shareDiscordId.trim()) return;
@@ -871,6 +908,7 @@ export default function BotDetailPage() {
           <TabsTrigger value="files" className="flex-1 md:flex-none">Files</TabsTrigger>
           <TabsTrigger value="env" className="flex-1 md:flex-none">Environment</TabsTrigger>
           <TabsTrigger value="logs" className="flex-1 md:flex-none">Logs</TabsTrigger>
+          <TabsTrigger value="console" className="flex-1 md:flex-none">Consola</TabsTrigger>
           <TabsTrigger value="deployments" className="flex-1 md:flex-none">Deployments</TabsTrigger>
           {isOwner && <TabsTrigger value="users" className="flex-1 md:flex-none"><Users className="w-3.5 h-3.5 mr-1" />Users</TabsTrigger>}
           {isOwner && <TabsTrigger value="settings" className="flex-1 md:flex-none"><Settings className="w-3.5 h-3.5 mr-1" />Settings</TabsTrigger>}
@@ -1399,6 +1437,69 @@ export default function BotDetailPage() {
                   <div ref={logsEndRef} />
                 </div>
               )}
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* Console — restricted to pip/npm install|uninstall, see bot-console.ts on the server */}
+        <TabsContent value="console" className="mt-4">
+          <div className="rounded-xl overflow-hidden border border-border/50 shadow-xl">
+            <div className="flex items-center justify-between px-4 py-2.5 bg-[#1c1c1e] border-b border-white/5">
+              <div className="flex items-center gap-2">
+                <div className="flex gap-1.5">
+                  <span className="w-3 h-3 rounded-full bg-[#ff5f57]" />
+                  <span className="w-3 h-3 rounded-full bg-[#febc2e]" />
+                  <span className="w-3 h-3 rounded-full bg-[#28c840]" />
+                </div>
+                <span className="text-[11px] text-white/30 ml-2 font-mono select-none">
+                  {(bot as any)?.language === "python" ? "pip" : "npm"} — {(bot as any)?.name}
+                </span>
+              </div>
+            </div>
+            <div className="px-4 pt-3 pb-2 bg-[#0d1117] border-b border-white/5">
+              <p className="text-[11px] text-white/30 font-mono">
+                Solo se permite instalar o quitar paquetes. Ejemplo:{" "}
+                <span className="text-white/60">
+                  {(bot as any)?.language === "python" ? "pip install requests" : "npm install axios"}
+                </span>
+                . El bot se reinicia solo para aplicar los cambios.
+              </p>
+            </div>
+            <div className="h-80 overflow-y-auto bg-[#0d1117] p-4 font-mono text-xs space-y-1.5">
+              {consoleHistory.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full gap-2 select-none">
+                  <span className="text-white/10 text-3xl">$</span>
+                  <p className="text-white/20 text-[11px]">Escribe un comando abajo para empezar</p>
+                </div>
+              ) : (
+                consoleHistory.map((entry, i) => (
+                  <div key={i} className="leading-5">
+                    {entry.type === "cmd" ? (
+                      <div className="text-[#79c0ff]">$ {entry.text}</div>
+                    ) : (
+                      <div className={`whitespace-pre-wrap break-words pl-3 ${entry.type === "err" ? "text-[#ff7b7b]" : "text-[#e6edf3]"}`}>
+                        {entry.text}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+              {consoleSending && <div className="text-white/30 pl-3">...</div>}
+              <div ref={consoleEndRef} />
+            </div>
+            <div className="flex items-center gap-2 px-3 py-2 bg-[#161b22] border-t border-white/5">
+              <span className="text-[#79c0ff] font-mono text-xs select-none">$</span>
+              <input
+                value={consoleInput}
+                onChange={e => setConsoleInput(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") handleConsoleSubmit(); }}
+                disabled={consoleSending}
+                placeholder={(bot as any)?.language === "python" ? "pip install requests" : "npm install axios"}
+                className="flex-1 bg-transparent border-none outline-none text-white/80 font-mono text-xs placeholder:text-white/20"
+              />
+              <Button size="sm" className="h-6 text-xs" disabled={!consoleInput.trim() || consoleSending} onClick={handleConsoleSubmit}>
+                Enviar
+              </Button>
             </div>
           </div>
         </TabsContent>

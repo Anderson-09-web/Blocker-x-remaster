@@ -6,8 +6,9 @@ import { requireAuth, requireInvite } from "../lib/auth-middleware";
 import { createNotification, notifyUser } from "../lib/notifications";
 import { startBot, stopBot, restartBot, reinstallBot, getProcessStatus, forcePresenceCheck } from "../lib/process-manager";
 import { presenceStore } from "./bot-internal";
-import { r2WriteFile, r2DeletePrefix } from "../lib/r2";
+import { r2ReadFile, r2WriteFile, r2DeletePrefix } from "../lib/r2";
 import { PYTHON_MAIN, PYTHON_REQUIREMENTS, JS_MAIN, JS_PACKAGE_JSON } from "../lib/templates";
+import { parseConsoleCommand, applyToRequirementsTxt, applyToPackageJson, queueInstall, ConsoleCommandError } from "../lib/bot-console";
 
 const router = Router();
 
@@ -409,6 +410,91 @@ router.post("/bots/:botId/set-runtime", requireAuth, async (req, res): Promise<v
   });
 
   res.json({ message: "Runtime version updated", version });
+});
+
+// A restricted "console" — only pip/npm install|uninstall are accepted.
+// See lib/bot-console.ts for why we don't expose a real shell.
+router.post("/bots/:botId/console", requireAuth, async (req, res): Promise<void> => {
+  const user = (req as any).user;
+  const botId = getBotId(req);
+  const bot = await requireBotAccess(req, res, botId);
+  if (!bot) return;
+
+  const { command } = req.body as { command?: string };
+  if (!command || typeof command !== "string") {
+    res.status(400).json({ error: "command requerido" });
+    return;
+  }
+
+  let parsed;
+  try {
+    parsed = parseConsoleCommand(command, bot.language);
+  } catch (err: any) {
+    if (err instanceof ConsoleCommandError) {
+      res.status(400).json({ error: err.message });
+      return;
+    }
+    throw err;
+  }
+
+  const fileName = parsed.manager === "pip" ? "requirements.txt" : "package.json";
+  const key = `${bot.r2Prefix}/${fileName}`;
+
+  let existing: string;
+  try {
+    existing = await r2ReadFile(key);
+  } catch {
+    existing = parsed.manager === "pip" ? PYTHON_REQUIREMENTS : JS_PACKAGE_JSON;
+  }
+
+  let content: string;
+  let changed: string[];
+  try {
+    if (parsed.manager === "pip") {
+      ({ content, changed } = applyToRequirementsTxt(existing, parsed));
+    } else {
+      ({ content, changed } = applyToPackageJson(existing, parsed));
+    }
+  } catch (err: any) {
+    if (err instanceof ConsoleCommandError) {
+      res.status(400).json({ error: err.message });
+      return;
+    }
+    throw err;
+  }
+
+  if (changed.length === 0) {
+    res.json({
+      message: parsed.action === "uninstall"
+        ? "Ninguno de esos paquetes estaba instalado."
+        : "Sin cambios.",
+      changed: [],
+    });
+    return;
+  }
+
+  await r2WriteFile(key, content, parsed.manager === "pip" ? "text/plain" : "application/json");
+
+  // Serialize installs across every bot on this instance — see bot-console.ts.
+  queueInstall(async () => {
+    try {
+      await restartBot({ ...bot, userId: bot.userId } as any, bot.userId);
+    } catch (err) {
+      req.log.error({ err, botId: bot.id }, "Console-triggered restart failed");
+    }
+  });
+
+  await createNotification({
+    userId: user.id,
+    title: `${bot.name} — actualizando dependencias`,
+    message: `${parsed.action === "install" ? "Instalando" : "Quitando"}: ${changed.join(", ")}. Revisa la consola de logs para ver el progreso.`,
+    type: "info",
+  });
+
+  res.json({
+    message: `${parsed.action === "install" ? "Instalando" : "Quitando"} ${changed.join(", ")}. El bot se reiniciará para aplicar los cambios.`,
+    changed,
+  });
 });
 
 router.post("/bots/:botId/reinstall", requireAuth, async (req, res): Promise<void> => {
